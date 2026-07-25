@@ -35,10 +35,10 @@ bun install
 docker compose -f docker/compose.yaml up -d
 
 # 3. gateway を起動(Fastify、既定ポート 4000)
-bun --cwd apps/gateway run dev
+bun run --cwd apps/gateway dev
 
 # 4. web を起動(Next.js、既定ポート 3000)
-bun --cwd apps/web run dev
+bun run --cwd apps/web dev
 ```
 
 ブラウザで `http://localhost:3000/themes/kafka` を開く。
@@ -63,8 +63,8 @@ gateway の `GET /healthz` は `{ ok: true, kafka: "connected" | "unreachable" |
 bun test              # 単体テスト(全ワークスペース)
 bun run typecheck     # tsc --noEmit(全ワークスペース)
 bun run lint          # biome check
-bun --cwd apps/gateway run test:integration  # 実 broker に対する統合テスト
-bun --cwd apps/web run test:e2e              # Playwright E2E スモーク(要 gateway/web 起動中)
+bun run --cwd apps/gateway test:integration  # 実 broker に対する統合テスト
+bun run --cwd apps/web test:e2e              # Playwright E2E スモーク(要 gateway/web 起動中)
 ```
 
 ## 配色トークン
