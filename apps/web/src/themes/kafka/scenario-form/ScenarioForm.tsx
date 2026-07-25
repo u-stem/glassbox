@@ -11,7 +11,8 @@ export interface ScenarioDescription {
   paramsSchema: JsonSchemaObject;
 }
 
-const INPUT_CLASS = "w-28 rounded border border-gray-300 px-2 py-1 text-sm";
+const INPUT_CLASS =
+  "w-28 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-sm text-(--text-primary)";
 
 /**
  * Auto-generates a parameter form from a scenario's JSON Schema (schemaToFields),
@@ -76,7 +77,16 @@ export function ScenarioForm({
               />
             )}
             {fieldErrors[field.name] && (
-              <span className="text-xs text-red-600">{fieldErrors[field.name]}</span>
+              // The dot lives inside this span: the label is a flex column, so a sibling
+              // would stack above the message instead of sitting beside it.
+              <span className="flex items-center gap-1.5 text-xs">
+                <span
+                  aria-hidden="true"
+                  className="inline-block size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: "var(--status-critical)" }}
+                />
+                {fieldErrors[field.name]}
+              </span>
             )}
           </label>
         );
@@ -87,7 +97,7 @@ export function ScenarioForm({
           void handleSubmit();
         }}
         disabled={isSubmitting}
-        className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+        className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
       >
         Run {scenario.title}
       </button>

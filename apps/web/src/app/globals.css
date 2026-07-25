@@ -1,6 +1,25 @@
 @import "tailwindcss";
 
 /*
+ * The scrollbar and the overscroll (rubber-band) area are painted from the root
+ * element's color-scheme, not .viz-root's -- without this a dark theme leaves a light
+ * scrollbar beside a dark page. Mirrors the same three-way cascade the tokens below
+ * use (default / OS dark unless light is forced / forced dark); .viz-root keeps its own
+ * color-scheme so a panel stays self-contained wherever it is mounted.
+ */
+:root {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/*
  * Reference palette from the dataviz skill (references/palette.md), validated with
  * scripts/validate_palette.js for both surfaces. Roles are exposed as CSS custom
  * properties so chart code references roles, never raw hex.
@@ -29,10 +48,22 @@
   --series-6: #008300;
   --series-7: #4a3aa7;
   --series-8: #e34948;
+  /* Status hues are scheme-independent (the dataviz palette validates the same four
+   * values on both surfaces), so they are declared once here and deliberately absent
+   * from both dark blocks below -- keeping one source of truth instead of three copies
+   * that can drift. Use them for marks/borders/translucent bands, not as a text color:
+   * --status-warning is only 1.74:1 against the light plane, so it can carry a hue but
+   * never a glyph. */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
+  /* ReactFlow paints its handles from these variables with hard-coded light defaults
+   * (#1a192b on white) and only honours its own dark palette behind a `.dark` class we
+   * never set, so dark mode would otherwise show white rings on every node edge.
+   * Pointing them at existing roles makes them follow the scheme for free. */
+  --xy-handle-background-color: var(--axis);
+  --xy-handle-border-color: var(--surface-1);
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .viz-root {
@@ -55,10 +86,6 @@
     --series-6: #008300;
     --series-7: #9085e9;
     --series-8: #e66767;
-    --status-good: #0ca30c;
-    --status-warning: #fab219;
-    --status-serious: #ec835a;
-    --status-critical: #d03b3b;
   }
 }
 :root[data-theme="dark"] .viz-root {

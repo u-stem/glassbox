@@ -85,7 +85,7 @@ export function ScenarioRunner({
               void runScenario(action.scenarioId, {});
             }}
             disabled={isSubmitting}
-            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
           >
             {action.label}
           </button>
@@ -97,7 +97,7 @@ export function ScenarioRunner({
         <select
           value={selectedId ?? ""}
           onChange={(e) => setSelectedId(e.target.value)}
-          className="rounded border border-gray-300 px-2 py-1 text-sm"
+          className="rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-sm text-(--text-primary)"
         >
           {(scenarios ?? []).map((scenario) => (
             <option key={scenario.id} value={scenario.id}>

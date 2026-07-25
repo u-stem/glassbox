@@ -62,7 +62,7 @@ export default async function HomePage() {
           </section>
 
           <section className="flex flex-col gap-1 rounded-lg border border-(--border) p-5">
-            <h2 className="text-lg font-semibold text-(--text-muted)">次のテーマ(準備中)</h2>
+            <h2 className="text-lg font-semibold text-(--text-secondary)">次のテーマ(準備中)</h2>
           </section>
         </div>
       </div>

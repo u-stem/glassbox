@@ -101,7 +101,10 @@ export function LessonPanel({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed right-4 top-20 z-10 rounded bg-emerald-700 px-3 py-1.5 text-sm text-white shadow"
+        // Filled even though it is a secondary action: this floats over whatever the
+        // canvas is showing, and an outlined surface would sit at 1.03:1 against the page
+        // plane (1.00:1 where it overlaps a panel), i.e. an invisible entry point.
+        className="fixed right-4 top-20 z-10 rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) shadow-lg hover:opacity-90"
       >
         レッスン
       </button>
@@ -118,12 +121,16 @@ export function LessonPanel({
 
   return (
     <aside
-      className="fixed right-4 top-20 z-10 flex max-h-[calc(100vh-6rem)] w-80 flex-col gap-3 overflow-y-auto rounded border border-gray-300 bg-white p-4 shadow-lg"
+      className="fixed right-4 top-20 z-10 flex max-h-[calc(100vh-6rem)] w-80 flex-col gap-3 overflow-y-auto rounded border border-(--border) bg-(--surface-1) p-4 shadow-lg"
       aria-label="ガイド付きレッスン"
     >
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">レッスン</h2>
-        <button type="button" onClick={() => setIsOpen(false)} className="text-sm text-gray-500">
+        <button
+          type="button"
+          onClick={() => setIsOpen(false)}
+          className="text-sm text-(--text-secondary) hover:text-(--text-primary)"
+        >
           閉じる
         </button>
       </div>
@@ -135,17 +142,17 @@ export function LessonPanel({
               <button
                 type="button"
                 onClick={() => startLesson(lesson)}
-                className="w-full rounded border border-gray-300 p-2 text-left text-sm hover:bg-gray-50"
+                className="w-full rounded border border-(--text-muted) p-2 text-left text-sm hover:border-(--text-primary)"
               >
                 <div className="font-medium">{lesson.title}</div>
-                <div className="text-xs text-gray-500">{lesson.summary}</div>
+                <div className="text-xs text-(--text-secondary)">{lesson.summary}</div>
               </button>
             </li>
           ))}
         </ul>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center justify-between text-xs text-(--text-secondary)">
             <span>{activeLesson.title}</span>
             <span>
               {clampedIndex + 1} / {totalSteps}
@@ -155,9 +162,9 @@ export function LessonPanel({
           {step && (
             <div className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">{step.title}</h3>
-              <p className="whitespace-pre-wrap text-sm text-gray-700">{step.body}</p>
+              <p className="whitespace-pre-wrap text-sm text-(--text-secondary)">{step.body}</p>
               {step.observe && (
-                <p className="rounded bg-emerald-50 p-2 text-xs text-emerald-900">
+                <p className="rounded border border-(--status-good)/60 bg-(--status-good)/12 p-2 text-xs">
                   観察ポイント: {step.observe}
                 </p>
               )}
@@ -168,7 +175,7 @@ export function LessonPanel({
                     void runStepAction();
                   }}
                   disabled={isRunning || resolvedAction === undefined}
-                  className="rounded bg-emerald-700 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+                  className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
                 >
                   このステップを実行
                 </button>
@@ -181,18 +188,22 @@ export function LessonPanel({
               type="button"
               onClick={() => setStepIndex((i) => clampStepIndex(i - 1, totalSteps))}
               disabled={clampedIndex === 0}
-              className="rounded border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+              className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
             >
               戻る
             </button>
-            <button type="button" onClick={exitLesson} className="text-xs text-gray-500">
+            <button
+              type="button"
+              onClick={exitLesson}
+              className="text-xs text-(--text-secondary) hover:text-(--text-primary)"
+            >
               レッスンを終了
             </button>
             <button
               type="button"
               onClick={() => setStepIndex((i) => clampStepIndex(i + 1, totalSteps))}
               disabled={clampedIndex === totalSteps - 1}
-              className="rounded border border-gray-300 px-2 py-1 text-sm disabled:opacity-50"
+              className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
             >
               次へ
             </button>

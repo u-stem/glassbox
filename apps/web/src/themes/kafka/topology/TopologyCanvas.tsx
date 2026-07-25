@@ -294,7 +294,11 @@ export function TopologyCanvas({
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
         >
-          <Background />
+          {/* ReactFlow's own dot color (#91919a) is a light-mode constant that only
+           * changes behind its `.dark` class, which we never set -- on the dark plane it
+           * ends up more prominent than on the light one. The handle colors are pinned to
+           * roles in globals.css for the same reason. */}
+          <Background color="var(--gridline)" />
         </ReactFlow>
 
         <svg

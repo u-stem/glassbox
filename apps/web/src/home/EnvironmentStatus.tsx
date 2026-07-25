@@ -40,13 +40,13 @@ export function EnvironmentStatus({ initialStatus }: { initialStatus: Environmen
         <StatusLabel status={status} />
       </div>
       {status.kind === "kafka-down" && (
-        <p className="text-(--text-muted)">
+        <p className="text-(--text-secondary)">
           Kafka ブローカーが起動していません。<code>{BROKER_SETUP_COMMAND}</code>{" "}
           を実行してください。
         </p>
       )}
       {status.kind === "gateway-down" && (
-        <p className="text-(--text-muted)">
+        <p className="text-(--text-secondary)">
           gateway に接続できません。<code>{BROKER_SETUP_COMMAND}</code> と{" "}
           <code>{GATEWAY_SETUP_COMMAND}</code> を実行してください。
         </p>
@@ -58,7 +58,7 @@ export function EnvironmentStatus({ initialStatus }: { initialStatus: Environmen
 function StatusLabel({ status }: { status: EnvironmentStatusValue }) {
   switch (status.kind) {
     case "checking":
-      return <span className="text-(--text-muted)">確認中…</span>;
+      return <span className="text-(--text-secondary)">確認中…</span>;
     case "ready":
       return <span className="text-(--text-secondary)">Gateway 接続 OK / Kafka 稼働中</span>;
     case "kafka-down":

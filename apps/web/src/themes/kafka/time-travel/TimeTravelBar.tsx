@@ -66,7 +66,7 @@ export function TimeTravelBar({
       <button
         type="button"
         onClick={onEnter}
-        className="rounded bg-gray-700 px-3 py-1.5 text-sm text-white"
+        className="w-fit rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
       >
         Time travel
       </button>
@@ -76,15 +76,18 @@ export function TimeTravelBar({
   const isAtLiveEdge = value >= max;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded border border-amber-400 bg-amber-50 p-2">
-      <span className="rounded bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">
+    // The band carries the warning hue as a translucent wash; the mode chip cannot,
+    // because --status-warning is 1.74:1 against the light plane and would read as plain
+    // bold text. Being in the past must never be missable, so the chip is ink-outlined.
+    <div className="flex flex-wrap items-center gap-3 rounded border border-(--status-warning)/60 bg-(--status-warning)/12 p-2">
+      <span className="rounded border border-(--text-primary) px-2 py-0.5 text-xs font-semibold">
         {isAtLiveEdge ? "LIVE" : "PAST"}
       </span>
       <button
         type="button"
         onClick={() => setIsPlaying((p) => !p)}
         disabled={isAtLiveEdge && !isPlaying}
-        className="rounded border border-amber-600 px-2 py-1 text-sm disabled:opacity-50"
+        className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
       >
         {isPlaying ? "Pause" : "Play"}
       </button>
@@ -97,10 +100,10 @@ export function TimeTravelBar({
           setIsPlaying(false);
           onSeek(Number(e.target.value));
         }}
-        className="w-48"
+        className="w-48 accent-(--accent)"
         aria-label="time travel seek"
       />
-      <span className="text-xs text-gray-600">
+      <span className="text-xs text-(--text-secondary)">
         seq {value} / {max}
       </span>
       <button
@@ -109,7 +112,7 @@ export function TimeTravelBar({
           setIsPlaying(false);
           onExit();
         }}
-        className="rounded bg-blue-600 px-2 py-1 text-sm text-white"
+        className="rounded bg-(--accent) px-2 py-1 text-sm text-(--on-accent) hover:opacity-90"
       >
         LIVE に戻る
       </button>

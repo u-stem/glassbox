@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, use, useEffect, useMemo, useRef, useState } from "react";
 import { GATEWAY_URL } from "@/lib/gateway";
 import { connectKafkaEvents, createBrowserEventSource } from "@/lib/sse";
 import { useKafkaStore } from "@/lib/store";
@@ -146,84 +146,115 @@ export default function KafkaThemePage({
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-4 p-6">
-      <h1 className="text-2xl font-bold">Kafka</h1>
+    // viz-root must sit on the page root, not on the width-limited inner div: the tokens
+    // are only defined inside .viz-root, and a centered max-w container would leave the
+    // page plane unpainted outside 80rem (see the home page for the same two-layer shape).
+    <main className="viz-root min-h-screen bg-(--page-plane) text-(--text-primary)">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6">
+        <h1 className="text-2xl font-bold">Kafka</h1>
 
-      <section className="flex flex-wrap items-end gap-4 rounded border border-gray-300 p-3">
-        <ScenarioRunner gatewayUrl={GATEWAY_URL} onError={setScenarioError} />
+        <section className="flex flex-wrap items-end gap-4 rounded border border-(--border) bg-(--surface-1) p-3">
+          <ScenarioRunner gatewayUrl={GATEWAY_URL} onError={setScenarioError} />
 
-        <label className="flex flex-col gap-1 text-sm">
-          slow-motion factorMs
-          <input
-            type="number"
-            min={0}
-            max={10000}
-            value={slowMotionFactorMs}
-            onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
-            className="w-24 rounded border border-gray-300 px-2 py-1"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={() => {
-            void handleSlowMotionToggle();
-          }}
-          className="rounded bg-purple-600 px-3 py-1.5 text-sm text-white"
-        >
-          Slow-motion: {slowMotionEnabled ? "ON" : "OFF"}
-        </button>
+          <label className="flex flex-col gap-1 text-sm">
+            slow-motion factorMs
+            <input
+              type="number"
+              min={0}
+              max={10000}
+              value={slowMotionFactorMs}
+              onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
+              className="w-24 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-(--text-primary)"
+            />
+          </label>
+          {/* Filled while on, outlined while off -- the state has to survive without the
+           * hue the old purple carried, and aria-pressed carries it for assistive tech. */}
+          <button
+            type="button"
+            aria-pressed={slowMotionEnabled}
+            onClick={() => {
+              void handleSlowMotionToggle();
+            }}
+            className={
+              slowMotionEnabled
+                ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
+                : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
+            }
+          >
+            Slow-motion: {slowMotionEnabled ? "ON" : "OFF"}
+          </button>
 
-        {scenarioError && <p className="w-full text-sm text-red-600">{scenarioError}</p>}
-        {consumerActionError && (
-          <p className="w-full text-sm text-red-600">{consumerActionError}</p>
-        )}
-      </section>
-
-      <TimeTravelBar
-        isActive={isTimeTravel}
-        min={timeTravel !== undefined ? (seqRange(timeTravel.index.ascendingEvents)?.min ?? 0) : 0}
-        max={timeTravel !== undefined ? (seqRange(timeTravel.index.ascendingEvents)?.max ?? 0) : 0}
-        value={timeTravel?.seekSeq ?? 0}
-        onEnter={enterTimeTravel}
-        onExit={() => setTimeTravel(undefined)}
-        onSeek={(seq) =>
-          setTimeTravel((prev) => (prev === undefined ? prev : { ...prev, seekSeq: seq }))
-        }
-      />
-
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-        <section className="flex flex-col gap-2 rounded border border-gray-300 p-3 lg:col-span-2">
-          <h2 className="text-lg font-semibold">Topology</h2>
-          <TopologyCanvas topic={topic} groups={displayGroups} events={displayEvents} />
+          {scenarioError && <ErrorLine>{scenarioError}</ErrorLine>}
+          {consumerActionError && <ErrorLine>{consumerActionError}</ErrorLine>}
         </section>
 
-        <section className="flex flex-col gap-2 rounded border border-gray-300 p-3">
-          <h2 className="text-lg font-semibold">
-            Rebalance state {primaryGroup ? `— ${primaryGroup.groupId}` : ""}
-          </h2>
-          <RebalanceDiagram
-            groupId={rebalanceGroupId}
-            {...(rebalanceOverride === undefined ? {} : { override: rebalanceOverride })}
-          />
-        </section>
+        <TimeTravelBar
+          isActive={isTimeTravel}
+          min={
+            timeTravel !== undefined ? (seqRange(timeTravel.index.ascendingEvents)?.min ?? 0) : 0
+          }
+          max={
+            timeTravel !== undefined ? (seqRange(timeTravel.index.ascendingEvents)?.max ?? 0) : 0
+          }
+          value={timeTravel?.seekSeq ?? 0}
+          onEnter={enterTimeTravel}
+          onExit={() => setTimeTravel(undefined)}
+          onSeek={(seq) =>
+            setTimeTravel((prev) => (prev === undefined ? prev : { ...prev, seekSeq: seq }))
+          }
+        />
 
-        <section className="flex flex-col gap-2 rounded border border-gray-300 p-3">
-          <h2 className="text-lg font-semibold">Partitions {topic ? `— ${topic.name}` : ""}</h2>
-          <PartitionBoard topic={topic} groups={displayGroups} />
-        </section>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+          <section className="flex flex-col gap-2 rounded border border-(--border) bg-(--surface-1) p-3 lg:col-span-2">
+            <h2 className="text-lg font-semibold">Topology</h2>
+            <TopologyCanvas topic={topic} groups={displayGroups} events={displayEvents} />
+          </section>
 
-        <section className="flex flex-col gap-2 rounded border border-gray-300 p-3 lg:col-span-2">
-          <h2 className="text-lg font-semibold">Event timeline</h2>
-          <Timeline events={displayEvents} />
-        </section>
+          <section className="flex flex-col gap-2 rounded border border-(--border) bg-(--surface-1) p-3">
+            <h2 className="text-lg font-semibold">
+              Rebalance state {primaryGroup ? `— ${primaryGroup.groupId}` : ""}
+            </h2>
+            <RebalanceDiagram
+              groupId={rebalanceGroupId}
+              {...(rebalanceOverride === undefined ? {} : { override: rebalanceOverride })}
+            />
+          </section>
+
+          <section className="flex flex-col gap-2 rounded border border-(--border) bg-(--surface-1) p-3">
+            <h2 className="text-lg font-semibold">Partitions {topic ? `— ${topic.name}` : ""}</h2>
+            <PartitionBoard topic={topic} groups={displayGroups} />
+          </section>
+
+          <section className="flex flex-col gap-2 rounded border border-(--border) bg-(--surface-1) p-3 lg:col-span-2">
+            <h2 className="text-lg font-semibold">Event timeline</h2>
+            <Timeline events={displayEvents} />
+          </section>
+        </div>
+
+        <LessonPanel
+          gatewayUrl={GATEWAY_URL}
+          onError={setConsumerActionError}
+          onSlowMotionChanged={setSlowMotionEnabled}
+          {...(initialLesson === undefined ? {} : { initialLesson })}
+        />
       </div>
-
-      <LessonPanel
-        gatewayUrl={GATEWAY_URL}
-        onError={setConsumerActionError}
-        onSlowMotionChanged={setSlowMotionEnabled}
-        {...(initialLesson === undefined ? {} : { initialLesson })}
-      />
     </main>
+  );
+}
+
+/** Error text with a --status-critical dot instead of red type: the status hues are
+ * validated as marks, not as glyphs (#d03b3b is 4.05:1 on the dark plane), so the
+ * message itself stays at --text-primary and the hue rides on the dot -- the same
+ * split the home screen's EnvironmentStatus uses. */
+function ErrorLine({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex w-full items-center gap-2 text-sm">
+      <span
+        aria-hidden="true"
+        className="inline-block size-2 shrink-0 rounded-full"
+        style={{ backgroundColor: "var(--status-critical)" }}
+      />
+      {children}
+    </p>
   );
 }

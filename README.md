@@ -67,6 +67,17 @@ bun --cwd apps/gateway run test:integration  # 実 broker に対する統合テ�
 bun --cwd apps/web run test:e2e              # Playwright E2E スモーク(要 gateway/web 起動中)
 ```
 
+## 配色トークン
+
+配色は [`apps/web/src/app/globals.css`](apps/web/src/app/globals.css) の `.viz-root` に CSS カスタムプロパティとして集約している。UI は必ずトークン参照(`bg-(--surface-1)` や `var(--text-primary)`)で書き、素の Tailwind パレット色(`bg-blue-600` など)は使わない。
+
+- **新しいページを作るときは、そのページの `<main>` に `viz-root` を付ける。** トークンは `.viz-root` の内側でしか定義されないため、付け忘れるとそのページだけライト固定になる。地色(`bg-(--page-plane)`)は幅を絞る前の全幅要素に置き、内側の `div` で `max-w-*` を掛ける。
+- `--series-1`〜`--series-8` はデータ(パーティション)の色で、`partitionColorVar()` 経由でのみ使う。UI の chrome に流用しない。
+- `--status-*` はマーク・枠線・透過した帯に使い、文字色には使わない(`--status-warning` はライト面に対して 1.74:1)。エラーは赤い文字ではなく `--status-critical` のドット + `--text-primary` の本文で示す。
+- `--text-muted` も文字色に使わない(ライト面で 3.5:1)。本文・補助テキストは `--text-secondary`。`--text-muted` は操作できる要素(ボタン・入力欄)の枠線に使い、静的な面の枠線は `--border`。
+- ボタンは「塗り(`--accent` / `--on-accent`)= 主アクション、枠線 = 副アクション」で階層を表す。色で機能を区別しない。
+- ライト/ダークは `<html>` の `data-theme`(`light` / `dark`、未設定なら OS 設定)で切り替わる。`globals.css` は既定・OS ダーク・強制ダークの 3 経路を宣言しており、スクロールバー用に `:root` へも `color-scheme` を置いている。
+
 ## ドキュメント
 
 - [`docs/adr/`](docs/adr/): 設計判断(ADR)
