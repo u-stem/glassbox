@@ -370,6 +370,7 @@ export interface AdminPollerOptions {
 export interface AdminPoller {
   start: () => void;
   stop: () => void;
+  kafkaStatus: () => "connected" | "unreachable" | "unknown";
 }
 
 /**
@@ -384,6 +385,11 @@ export function createAdminPoller(
   let previous: AdminSnapshot | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
+  // Tracks broker reachability, not overall tick success: set only from the
+  // topic-RPC path below, deliberately independent of onError/snapshotsEqual and of
+  // fetchGroupSnapshots' own group RPCs (a lone describeGroups/listConsumerGroupOffsets
+  // failure doesn't mean the broker itself is unreachable -- see this function's doc).
+  let lastOutcome: "unknown" | "connected" | "unreachable" = "unknown";
 
   // onError itself must not be allowed to throw: if it did, tick()'s reschedule would
   // never run and the poller would permanently stop ticking.
@@ -405,6 +411,10 @@ export function createAdminPoller(
       const topicPartitionIndexes = await buildTopicPartitionIndexes(admin, topicNames);
       const rawOffsets = await fetchTopicOffsets(admin, topicPartitionIndexes);
       const topicEndOffsets = buildTopicEndOffsets(rawOffsets);
+
+      // The topic RPCs above are the reachability signal: reaching this point means
+      // the broker responded, regardless of what fetchGroupSnapshots does next.
+      lastOutcome = "connected";
 
       // Deliberately isolated from the topic-offset fetch above: a failure fetching
       // consumer group info (e.g. listGroups() itself rejecting) must not prevent
@@ -434,6 +444,7 @@ export function createAdminPoller(
         options.onSnapshot(snapshot);
       }
     } catch (error) {
+      lastOutcome = "unreachable";
       reportError(error);
     }
 
@@ -455,6 +466,9 @@ export function createAdminPoller(
         clearTimeout(timer);
         timer = undefined;
       }
+    },
+    kafkaStatus() {
+      return lastOutcome;
     },
   };
 }

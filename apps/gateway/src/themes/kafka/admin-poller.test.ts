@@ -423,3 +423,107 @@ describe("createAdminPoller resiliency", () => {
     ]);
   });
 });
+
+function makeSucceedingAdmin(): AdminPollerDeps {
+  return {
+    listTopics: async () => [],
+    metadata: async () => ({
+      id: "test-cluster",
+      brokers: new Map(),
+      controllerId: 0,
+      topics: new Map(),
+      lastUpdate: 0,
+    }),
+    listOffsets: async () => [],
+    listGroups: async () => new Map(),
+    describeGroups: async () => new Map(),
+    listConsumerGroupOffsets: async () => [],
+  };
+}
+
+describe("createAdminPoller kafkaStatus", () => {
+  test("is unknown before the first tick runs", () => {
+    const poller = createAdminPoller(makeSucceedingAdmin(), {
+      intervalMs: 1000,
+      onSnapshot: () => {},
+    });
+
+    expect(poller.kafkaStatus()).toBe("unknown");
+  });
+
+  test("becomes connected after a successful tick", async () => {
+    const poller = createAdminPoller(makeSucceedingAdmin(), {
+      intervalMs: 1000,
+      onSnapshot: () => {},
+    });
+
+    poller.start();
+    await sleep(30);
+    poller.stop();
+
+    expect(poller.kafkaStatus()).toBe("connected");
+  });
+
+  test("becomes unreachable after a failing tick, then recovers to connected on the next success", async () => {
+    const admin = makeFailingAdmin();
+    const poller = createAdminPoller(admin, {
+      intervalMs: 20,
+      onSnapshot: () => {},
+      onError: () => {},
+    });
+
+    poller.start();
+    await sleep(30);
+    expect(poller.kafkaStatus()).toBe("unreachable");
+
+    admin.listTopics = async () => [];
+    await sleep(30);
+    poller.stop();
+
+    expect(poller.kafkaStatus()).toBe("connected");
+  });
+
+  test("stays connected on a tick where only group RPCs fail (topic RPCs still succeed)", async () => {
+    const admin: AdminPollerDeps = {
+      listTopics: async () => ["orders"],
+      metadata: async () => ({
+        id: "test-cluster",
+        brokers: new Map(),
+        controllerId: 0,
+        topics: new Map([
+          ["orders", { id: "t1", partitions: [], partitionsCount: 1, lastUpdate: 0 }],
+        ]),
+        lastUpdate: 0,
+      }),
+      listOffsets: async (options) => [
+        {
+          name: "orders",
+          partitions:
+            options.topics[0]?.partitions.map((p) => ({
+              partitionIndex: p.partitionIndex,
+              timestamp: p.timestamp,
+              offset: 5n,
+              leaderEpoch: 0,
+            })) ?? [],
+        },
+      ],
+      listGroups: async () => {
+        throw new Error("listGroups unavailable");
+      },
+      describeGroups: async () => new Map(),
+      listConsumerGroupOffsets: async () => [],
+    };
+
+    const poller = createAdminPoller(admin, {
+      intervalMs: 20,
+      onSnapshot: () => {},
+      onError: () => {},
+    });
+
+    poller.start();
+    await sleep(30);
+    poller.stop();
+
+    expect(poller.kafkaStatus()).toBe("connected");
+  });
+});

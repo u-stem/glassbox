@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type ChildProcess, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { healthzResponseSchema } from "@glassbox/schema";
 
 const gatewayRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -50,6 +51,27 @@ beforeAll(async () => {
 
 afterAll(() => {
   gatewayProcess.kill();
+});
+
+describe("healthz Kafka reachability", () => {
+  test("eventually reports kafka: connected once the admin poller has ticked", async () => {
+    // ADMIN_POLL_INTERVAL_MS is 300ms for this test process (see beforeAll); the
+    // gateway is already up (waitForHealthz), so this just waits out the first tick.
+    const deadline = Date.now() + 5_000;
+    let kafkaStatus: string | undefined;
+
+    while (Date.now() < deadline) {
+      const response = await fetch(`${BASE_URL}/healthz`);
+      const body = healthzResponseSchema.parse(await response.json());
+      kafkaStatus = body.kafka;
+      if (kafkaStatus === "connected") {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    expect(kafkaStatus).toBe("connected");
+  }, 10_000);
 });
 
 describe("gateway SSE + produce-burst integration", () => {

@@ -1,5 +1,5 @@
 import cors from "@fastify/cors";
-import type { GlassboxEvent } from "@glassbox/schema";
+import type { GlassboxEvent, HealthzResponse } from "@glassbox/schema";
 import { Admin } from "@platformatic/kafka";
 import Fastify from "fastify";
 import { ulid } from "ulid";
@@ -153,8 +153,8 @@ async function ensureDemoTopic(): Promise<void> {
   });
 }
 
-app.get("/healthz", async () => {
-  return { ok: true };
+app.get("/healthz", async (): Promise<HealthzResponse> => {
+  return { ok: true, kafka: adminPoller.kafkaStatus() };
 });
 
 /**
