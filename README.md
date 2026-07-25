@@ -55,6 +55,8 @@ bun --cwd apps/web run dev
 
 web 側は `NEXT_PUBLIC_GATEWAY_URL`(既定 `http://localhost:4000`)で gateway の URL を指定する。
 
+gateway の `GET /healthz` は `{ ok: true, kafka: "connected" | "unreachable" | "unknown" }` を返す。ホーム画面(`/`)はこれをポーリングし、gateway/ブローカーの起動状態を表示する。
+
 ## 開発コマンド
 
 ```bash
