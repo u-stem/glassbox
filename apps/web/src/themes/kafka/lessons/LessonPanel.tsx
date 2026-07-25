@@ -39,6 +39,7 @@ export function LessonPanel({
   gatewayUrl,
   onError,
   onSlowMotionChanged,
+  initialLesson,
 }: {
   gatewayUrl: string;
   onError: (message: string | undefined) => void;
@@ -47,10 +48,15 @@ export function LessonPanel({
    * gateway's own state is the source of truth either way; this just keeps the two
    * independent UI surfaces from disagreeing about it). */
   onSlowMotionChanged?: (enabled: boolean) => void;
+  /** Lesson to open on mount (e.g. resolved from a `?lesson=` deep link by the
+   * theme page). Only consulted for the initial useState value -- this panel
+   * doesn't react to `initialLesson` changing after mount, since the theme page
+   * only resolves it once from the page's own initial searchParams. */
+  initialLesson?: Lesson;
 }) {
   const world = useKafkaStore((state) => state.world);
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeLesson, setActiveLesson] = useState<Lesson | undefined>(undefined);
+  const [isOpen, setIsOpen] = useState(initialLesson !== undefined);
+  const [activeLesson, setActiveLesson] = useState<Lesson | undefined>(initialLesson);
   const [stepIndex, setStepIndex] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
 

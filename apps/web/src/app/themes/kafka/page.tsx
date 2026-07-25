@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
+import { GATEWAY_URL } from "@/lib/gateway";
 import { connectKafkaEvents, createBrowserEventSource } from "@/lib/sse";
 import { useKafkaStore } from "@/lib/store";
 import { LessonPanel } from "@/themes/kafka/lessons/LessonPanel";
+import { lessons } from "@/themes/kafka/lessons/lessons";
+import { findLessonByParam } from "@/themes/kafka/lessons/navigation";
 import { PartitionBoard } from "@/themes/kafka/partition-board/PartitionBoard";
 import { RebalanceDiagram } from "@/themes/kafka/rebalance-diagram/RebalanceDiagram";
 import { ScenarioRunner } from "@/themes/kafka/scenario-form/ScenarioRunner";
@@ -18,7 +21,6 @@ import {
 import { Timeline } from "@/themes/kafka/timeline/Timeline";
 import { TopologyCanvas } from "@/themes/kafka/topology/TopologyCanvas";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4000";
 /** Matches the gateway's DEMO_TOPIC / add-consumer's default groupId (server.ts,
  * consumer-scenarios.ts). The broker is shared infrastructure -- other processes
  * (integration tests, other scenarios) can create their own topics/groups against the
@@ -31,7 +33,14 @@ const DEMO_GROUP_ID = "glassbox-consumers";
  * reconstructed history is capped the same way the live store caps it. */
 const MAX_TRANSITION_HISTORY_PER_GROUP = 10;
 
-export default function KafkaThemePage() {
+export default function KafkaThemePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = use(searchParams);
+  const initialLesson = findLessonByParam(lessons, resolvedSearchParams.lesson);
+
   const events = useKafkaStore((state) => state.events);
   const latestSnapshot = useKafkaStore((state) => state.latestSnapshot);
   const groups = useKafkaStore((state) => state.world.groups);
@@ -213,6 +222,7 @@ export default function KafkaThemePage() {
         gatewayUrl={GATEWAY_URL}
         onError={setConsumerActionError}
         onSlowMotionChanged={setSlowMotionEnabled}
+        {...(initialLesson === undefined ? {} : { initialLesson })}
       />
     </main>
   );
