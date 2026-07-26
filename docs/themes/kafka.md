@@ -12,41 +12,64 @@ glassbox の最初のテーマ。本物の Apache Kafka(Docker Compose、KRaft �
 
 ## 4 パネルの読み方
 
-画面には 4 つのパネルが並ぶ。
+画面には 4 つのパネルが並ぶ。見出しは日本語を主・英語を従にしている(英語表記は gateway のイベント名やシナリオのパラメータにそのまま現れるため、併記しないと同じ概念だと気づけない)。
 
-1. **Topology**(トポロジーキャンバス): Producer → Topic(パーティションレーン)→ Consumer group のメンバーという構成を図示する。メッセージが実際に流れるたびに、経路に沿って色付きのパルスがアニメーションする(色はパーティションごとに固定)。kill された consumer は破線・薄い表示で "lost" と分かるようにしている。
-2. **Rebalance state**(状態遷移図): consumer group の 4 状態(Empty/PreparingRebalance/CompletingRebalance/Stable)を固定レイアウトで常設表示し、現在の状態をハイライト、直近の遷移履歴を下に一覧表示する。
-3. **Partitions**(パーティション盤面): 各パーティションのレーンに committed offset と end offset をマーカーで示し、その間隙(= ラグ)を帯で可視化する。produce/consume/ラグを最も直接的に示すパネル。
-4. **Event timeline**(イベントタイムライン): gateway から届いた生イベントを新しい順に一覧表示する。フィルタで種別・actor を絞り込める。
+1. **トポロジー(Topology)**: Producer → Topic(パーティションレーン)→ Consumer group のメンバーという構成を図示する。メッセージが実際に流れるたびに、経路に沿って色付きのパルスがアニメーションする(色はパーティションごとに固定)。kill された consumer は破線・薄い表示で "lost" と分かるようにしている。
+2. **リバランス状態(Rebalance state)**: consumer group の 4 状態(Empty/PreparingRebalance/CompletingRebalance/Stable)を固定レイアウトで常設表示し、現在の状態をハイライト、直近の遷移履歴を下に一覧表示する。状態名は Kafka の実際の名前なので英語のままにしている。
+3. **パーティション(Partitions)**: 各パーティションのレーンに committed offset と end offset をマーカーで示し、その間隙(= ラグ)を帯で可視化する。produce/consume/ラグを最も直接的に示すパネル。
+4. **イベントタイムライン(Event timeline)**: gateway から届いた生イベントを新しい順に一覧表示する。フィルタで種別・実行主体を絞り込める。
 
 これら 4 パネルの裏側にある状態管理の権威モデル(admin snapshot と client イベントのどちらを優先するか)は [ADR-0003](../adr/0003-state-authority-model.md) を参照。
 
+### トポロジーの横スクロール
+
+トポロジーは pan/zoom を無効にした固定レイアウトで描いている。レイアウトのピクセル座標と画面座標を一致させることで、メッセージのパルスを重ねた SVG が同じ座標系を使えるようにするためで、`fitView` で縮小するとノードだけが変換されてパルスがずれる。
+
+そのため必要幅(780px)に満たない場合は縮小せず横スクロールする。ReactFlow の `preventScrolling` は既定で wheel イベントを止めてしまい、そのままではこのスクロールに到達できないので `false` を明示している(副次的に、トポロジー上でページの縦スクロールが止まる挙動も解消している)。
+
 ## シナリオの見どころ
 
-コントロールバー上部の「シナリオ実行」フォーム(Phase 4 で自動生成、後述)から、以下のシナリオを実行できる。
+コントロールバーは「よく使う操作」「シナリオを実行」「再生モード」の 3 グループに分かれており、2 つ目のグループから以下のシナリオを実行できる。
 
 | シナリオ | 見どころ |
 |---|---|
-| `produce-burst`(topic, count, rateMs, keyStrategy) | `keyStrategy=keyed` は同じキーが同じパーティションに集まる様子、`round-robin` は全パーティションへの均等な分散を、パーティション盤面とトポロジーのパルスで比較できる |
-| `add-consumer`(groupId, topics) | consumer が group に参加し、リバランスを経て assignment が確定するまでの一連を状態遷移図で観察できる |
-| `remove-consumer`(consumerId, mode: graceful/kill) | graceful は即座にメンバーから消えるが、kill は broker のセッションタイムアウト(既定 60 秒)が過ぎるまで "lost" 状態で残り続ける |
-| `slow-consumer`(consumerId, processingDelayMs) | consumer の処理を意図的に遅くし、パーティション盤面でラグが単調に増えていく様子を観察できる。offset は autocommit ではなく各メッセージの処理(processingDelayMs のsleep を含む)完了後に明示的に commit しており、committed offset が実際の処理進捗と一致するようにしている |
-| スローモーション トグル | 下記「スローモーションの限界」を参照 |
+| メッセージをまとめて送る(`produce-burst`) | `keyStrategy=keyed` は同じキーが同じパーティションに集まる様子、`round-robin` は全パーティションへの均等な分散を、パーティション盤面とトポロジーのパルスで比較できる |
+| consumer を 1 台追加する(`add-consumer`) | consumer が group に参加し、リバランスを経て assignment が確定するまでの一連を状態遷移図で観察できる |
+| consumer を削除する(`remove-consumer`、mode: graceful/kill) | graceful は即座にメンバーから消えるが、kill は broker のセッションタイムアウト(既定 60 秒)が過ぎるまで "lost" 状態で残り続ける |
+| consumer の処理を遅くする(`slow-consumer`) | consumer の処理を意図的に遅くし、パーティション盤面でラグが単調に増えていく様子を観察できる。offset は autocommit ではなく各メッセージの処理(processingDelayMs のsleep を含む)完了後に明示的に commit しており、committed offset が実際の処理進捗と一致するようにしている |
+| スローモーション トグル(「再生モード」) | 下記「スローモーションの限界」を参照 |
 
-各シナリオのパラメータは `paramsSchema`(Zod)から JSON Schema として生成され、web 側で自動的にフォームが組み立てられる(`GET /api/themes/kafka/scenarios`、`apps/web/src/themes/kafka/scenario-form/`)。頻繁に使う「Produce 10」「Add consumer」はデフォルト値のままワンクリックで実行できるショートカットボタンとして残してあり、それ以外のパラメータを変えたい場合はシナリオを選んでフォームを埋める。
+各シナリオのパラメータは `paramsSchema`(Zod)から JSON Schema として生成され、web 側で自動的にフォームが組み立てられる(`GET /api/themes/kafka/scenarios`、`apps/web/src/themes/kafka/scenario-form/`)。
+
+シナリオ名と説明は `apps/gateway/src/themes/kafka/scenarios/metadata.ts` に集約し、項目ラベルは各 Zod フィールドの `.meta({ title, description })` で与えている。これは `z.toJSONSchema` の出力にのみ現れ、parse の挙動には影響しない。日本語名にはシナリオ id を併記している(id はイベントタイムラインと REST のパスに出るため、落とすと画面上の表示と結び付けられなくなる)。
+
+「よく使う操作」の 2 つはデフォルト値のままワンクリックで実行でき、それ以外のパラメータを変えたい場合はシナリオを選んでフォームを埋める。
 
 ## ガイド付きレッスン
 
-画面右上の「レッスン」ボタンから、データ駆動のステップ列として書かれたガイド付きレッスンを開始できる(`apps/web/src/themes/kafka/lessons/`)。レッスンパネルはモードレスで、開いている間も他の操作は妨げられない。
+見出し行の「レッスン」ボタンから、データ駆動のステップ列として書かれたガイド付きレッスンを開始できる(`apps/web/src/themes/kafka/lessons/`)。
+
+レッスンは**右サイドのドロワー**に出る。開いている間はパネルグリッドが 3 カラムから 2 カラムに切り替わって場所を空けるので、レッスン本文が「このパネルを見てください」と指示している対象をレッスン自身が覆うことはない(各パネルの col-span は変えず、カラム数だけを切り替えている。2 カラムではトポロジーが全幅になり、最も幅を必要とするパネルが縮小分を吸収する)。1024px 未満ではドロワーがパネル群の**上**に出る。
+
+ドロワーはモードレスで、開いている間も他の操作は妨げられない。レッスンの進捗はページ側が保持しているため、用語集面に切り替えて戻っても読みかけの位置は失われない。
 
 - **Partitioning 入門**: キー付き produce がなぜ同じパーティションに集まるのかを、盤面とトポロジーで観察し、round-robin と比較する。
 - **Consumer group リバランス**: consumer の追加・停止のたびに group がどう状態遷移するかを観察する。実際のリバランスは数百 ms 未満で終わってしまうため、途中でスローモーションを ON にしてから 2 台目の consumer を追加し、`PreparingRebalance` で数秒間留まる様子を確認する。最後に consumer を kill し、"lost" 表示とその後のリバランスを観察する。
 
 各ステップは「実行するシナリオ + パラメータ」を持ち、「このステップを実行」ボタンで gateway に対して実際にシナリオを発火できる。kill 対象の consumerId のように実行時まで確定しない値は、現在の world 状態から動的に解決する(直近に参加した生存中の consumer を選ぶ)。
 
+## 用語集
+
+Kafka の語彙を知らなくても画面が読めるよう、用語をその場で引ける仕組みを持つ(`apps/web/src/themes/kafka/glossary/`)。
+
+- **用語マーカー**: パネル見出しやコントロールバーのグループ名の横にある小さな「?」。押すと短い解説カードがその場に開く。カードからは関連語をたどれるほか、「用語集で見る」で一覧に移動できる。
+- **用語集ドロワー**: 見出し行の「用語集」ボタンで開く。レッスンと同じドロワーの 2 面目で、28 語を「基本のしくみ / オフセットとラグ / consumer group とリバランス / この画面の用語」の 4 つに分けて並べる。新規ルートやモーダルにしていないのは、ページ遷移が SSE 接続とタイムトラベルの状態を切ってしまい、オーバーレイでは「可視化を覆う」問題を作り直すことになるため。
+- 用語データは `glossary/terms.ts` の 1 ファイルに集約している。本文はこのドキュメントと [ADR-0003](../adr/0003-state-authority-model.md) の記述を圧縮したもので、実行時に Markdown を読む仕組みは持たない。用語 id は union 型なので、存在しない用語を参照するとコンパイルエラーになる。
+- 用語マーカーは `<button>` の中・`<label>` が包む領域内・SVG の中・ReactFlow のノード内には置けない(いずれも解説カードの `position: fixed` かクリック領域が壊れる)。詳細は `glossary/GlossaryTerm.tsx` のコメントを参照。
+
 ## タイムトラベル(スクラブ再生)
 
-画面上部の「Time travel」ボタンで、蓄積済みのイベント履歴(最大 2000 件)を任意の時点までシークして、その時点の world を再現できる。
+見出し行の「タイムトラベル」ボタンで、蓄積済みのイベント履歴(最大 2000 件)を任意の時点までシークして、その時点の world を再現できる。
 
 - 入る瞬間の event バッファを固定してインデックスを構築し(`apps/web/src/themes/kafka/time-travel/time-travel.ts`)、シークバーで指定した `seq` まで再度 reduce して各パネルに表示する。再構成はチェックポイント(200 イベントごと)を挟んで行うため、毎フレームすべてのイベントを最初から reduce し直すことはない。
 - 過去にシークしている間も、ライブの新規イベントは裏側で蓄積が継続する(「LIVE に戻る」を押すと最新状態の表示に戻る)。

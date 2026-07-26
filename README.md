@@ -97,6 +97,8 @@ bun run --cwd apps/web test:e2e              # Playwright E2E スモーク(要 g
 - `--status-*` はマーク・枠線・透過した帯に使い、文字色には使わない(`--status-warning` はライト面に対して 1.74:1)。エラーは赤い文字ではなく `--status-critical` のドット + `--text-primary` の本文で示す。
 - `--text-muted` も文字色に使わない(ライト面で 3.5:1)。本文・補助テキストは `--text-secondary`。`--text-muted` は操作できる要素(ボタン・入力欄)の枠線に使い、静的な面の枠線は `--border`。
 - ボタンは「塗り(`--accent` / `--on-accent`)= 主アクション、枠線 = 副アクション」で階層を表す。色で機能を区別しない。
+- **面の上に重ねる面**(ポップオーバー等)の枠線は `--border` ではなく `--axis` を使う。サーフェスは `--surface-1` / `--page-plane` の 2 段しかなく、`--surface-1` のカードの上に `--surface-1` を重ねると alpha 0.1 の `--border` では輪郭が消えるため(トポロジーのノードが同じ理由で `--axis` を使っている)。
+- **z 階層は 3 つだけ**: `10` = データツールチップ(パーティション盤面)、`40` = 共通ヘッダー、`50` = 用語ポップオーバー。サイドドロワーはフロー内に置いてあるので z-index を持たない。`position: fixed` のポップオーバーが正しく置かれるよう、パネルやドロワーに `transform` / `filter` / `will-change` / `contain` を付けない(`sticky` は包含ブロックを作らないので可)。
 - ライト/ダークは `<html>` の `data-theme`(`light` / `dark`、未設定なら OS 設定)で切り替わる。`globals.css` は既定・OS ダーク・強制ダークの 3 経路を宣言しており、スクロールバー用に `:root` へも `color-scheme` を置いている。
 
 ## ドキュメント
@@ -106,5 +108,6 @@ bun run --cwd apps/web test:e2e              # Playwright E2E スモーク(要 g
   - [0002: SSE リアルタイム配信](docs/adr/0002-sse-realtime-transport.md)
   - [0003: 状態の権威モデル](docs/adr/0003-state-authority-model.md)
   - [0004: gateway プロセスの耐障害性](docs/adr/0004-process-resilience.md)
+  - [0005: ブローカーのライフサイクル所有](docs/adr/0005-broker-lifecycle-ownership.md)
 - [`docs/spikes/`](docs/spikes/): 使い捨て spike の記録
-- [`docs/themes/kafka.md`](docs/themes/kafka.md): Kafka テーマの学習内容・4 パネルの読み方・レッスン・既知の限界
+- [`docs/themes/kafka.md`](docs/themes/kafka.md): Kafka テーマの学習内容・4 パネルの読み方・レッスン・用語集・既知の限界
