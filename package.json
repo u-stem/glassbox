@@ -9,6 +9,7 @@
     "node": ">=24.6.0"
   },
   "scripts": {
+    "dev": "bun run --filter '*' dev",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun test",
     "lint": "biome check .",

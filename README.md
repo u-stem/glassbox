@@ -31,17 +31,24 @@
 # 1. 依存関係のインストール(bun workspaces: apps/*, packages/*)
 bun install
 
-# 2. Kafka ブローカーを起動(KRaft シングルノード、ポート 9092)
-docker compose -f docker/compose.yaml up -d
-
-# 3. gateway を起動(Fastify、既定ポート 4000)
-bun run --cwd apps/gateway dev
-
-# 4. web を起動(Next.js、既定ポート 3000)
-bun run --cwd apps/web dev
+# 2. gateway(Fastify、既定ポート 4000)と web(Next.js、既定ポート 3000)を並列起動
+bun run dev
 ```
 
-ブラウザで `http://localhost:3000/themes/kafka` を開く。
+ブラウザで `http://localhost:3000` を開き、Kafka カードの「起動」ボタンでブローカーを起動する。初回はイメージの取得とコンテナ作成が走るため数分かかることがある。起動後、「ダッシュボードを開く」から `/themes/kafka` に進む。
+
+gateway は Kafka が起動していなくても立ち上がり、ブローカーに到達できた時点でデモトピックを作成する([ADR-0005](docs/adr/0005-broker-lifecycle-ownership.md))。したがって起動順序を気にする必要はない。
+
+個別に起動したい場合、または UI を使わずブローカーを操作したい場合は次のコマンドを使う。
+
+```bash
+docker compose -f docker/compose.yaml up -d   # ブローカーの起動
+docker compose -f docker/compose.yaml stop    # ブローカーの停止
+bun run --cwd apps/gateway dev                # gateway だけを起動
+bun run --cwd apps/web dev                    # web だけを起動
+```
+
+`bun run dev` は両プロセスに同じ環境変数を渡すため、`PORT` を指定すると gateway と web の両方がそのポートを使おうとする。ポートを変えたいときは個別起動を使う。
 
 ### 環境変数(いずれも既定値あり、`apps/gateway/src/env.ts` 参照)
 
@@ -52,10 +59,24 @@ bun run --cwd apps/web dev
 | `EVENT_BUFFER_CAPACITY` | `1000` | SSE リングバッファの保持件数 |
 | `ADMIN_POLL_INTERVAL_MS` | `1000` | admin snapshot のポーリング間隔 |
 | `WEB_ORIGIN` | `http://localhost:3000` | CORS で許可する web の origin |
+| `GLASSBOX_COMPOSE_FILE` | リポジトリ同梱の `docker/compose.yaml` | ブローカー制御 API が操作する compose ファイル |
 
 web 側は `NEXT_PUBLIC_GATEWAY_URL`(既定 `http://localhost:4000`)で gateway の URL を指定する。
 
-gateway の `GET /healthz` は `{ ok: true, kafka: "connected" | "unreachable" | "unknown" }` を返す。ホーム画面(`/`)はこれをポーリングし、gateway/ブローカーの起動状態を表示する。
+### 状態の確認とブローカー制御 API
+
+gateway の `GET /healthz` は `{ ok: true, kafka: "connected" | "unreachable" | "unknown" }` を返す。これは「gateway がいまブローカーと話せているか」であり、コンテナが動いているかとは別の問いである(コンテナが up でもヘルスチェック通過前は接続できない)。
+
+コンテナ側の状態と操作は `/api/themes/kafka/broker` が担う。
+
+| メソッド | 内容 |
+|---|---|
+| `GET` | `{ broker: { kind: "running" \| "starting" \| "stopped" \| "absent" \| "unavailable" } }` を返す |
+| `POST` | `{ "action": "start" \| "stop" }` を受け取り、実行後に観測した状態を返す |
+
+ホーム画面(`/`)はこの 2 つをポーリングし、「Gateway 接続」と「ブローカー(コンテナ)」を別々の行として表示したうえで、起動/停止ボタンを出す。停止は `docker compose stop` であり、コンテナもデータも残る(`down` は行わない)。実行中に再度 `POST` すると 409 を返し、`docker compose up` が多重に走ることはない。
+
+このエンドポイントは gateway の他の API と同じくループバック(`HOST` 既定 `127.0.0.1`)と `WEB_ORIGIN` からのみ到達できる。
 
 ## 開発コマンド
 
