@@ -107,6 +107,24 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
   let nextIndex = 1;
   let joinDelayMs = 0;
 
+  async function removeConsumer(clientId: string, mode: "graceful" | "kill"): Promise<void> {
+    const actor = consumers.get(clientId);
+    if (actor === undefined) {
+      return;
+    }
+    consumers.delete(clientId);
+    await actor.close(mode);
+
+    if (mode === "kill") {
+      const delayMs = actor.getSessionTimeoutMs() + KILL_TEARDOWN_MARGIN_MS;
+      scheduleDelayed(() => {
+        actor.finalizeKillTeardown().catch((error: unknown) => {
+          options.onTeardownError?.(clientId, error);
+        });
+      }, delayMs);
+    }
+  }
+
   return {
     add({ groupId, topics, sessionTimeoutMs, rebalanceTimeoutMs, heartbeatIntervalMs }) {
       if (consumers.size >= MAX_CONSUMERS) {
@@ -134,6 +152,21 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
 
       void actor.startConsuming(topics).catch((error: unknown) => {
         options.onConsumeError?.(clientId, error);
+        // The consume stream never retries on its own (see ConsumerActor's class doc),
+        // so an actor whose stream rejected is dead but would otherwise stay
+        // registered: occupying a MAX_CONSUMERS slot and still being reported to the
+        // UI as a live group member. Measured against a real broker while stopping and
+        // restarting it from the home screen (ADR-0005), where exactly this happens.
+        //
+        // Torn down as "kill", not "graceful": a graceful close tries a LeaveGroup that
+        // cannot reach a broker that went away, and the underlying Consumer was then
+        // observed keeping its membership alive indefinitely -- the broker still
+        // reported it as a STABLE member holding every partition minutes later. The
+        // kill path severs the connections instead, so the broker expires the member
+        // by session timeout and a freshly added consumer gets a real assignment.
+        void removeConsumer(clientId, "kill").catch((teardownError: unknown) => {
+          options.onTeardownError?.(clientId, teardownError);
+        });
       });
 
       return actor;
@@ -143,23 +176,7 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
       return consumers.get(clientId);
     },
 
-    async remove(clientId, mode) {
-      const actor = consumers.get(clientId);
-      if (actor === undefined) {
-        return;
-      }
-      consumers.delete(clientId);
-      await actor.close(mode);
-
-      if (mode === "kill") {
-        const delayMs = actor.getSessionTimeoutMs() + KILL_TEARDOWN_MARGIN_MS;
-        scheduleDelayed(() => {
-          actor.finalizeKillTeardown().catch((error: unknown) => {
-            options.onTeardownError?.(clientId, error);
-          });
-        }, delayMs);
-      }
-    },
+    remove: removeConsumer,
 
     all() {
       return [...consumers.values()];
