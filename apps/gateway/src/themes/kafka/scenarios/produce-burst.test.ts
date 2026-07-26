@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import {
   buildMessageKey,
   createProduceBurstRunner,
@@ -8,6 +9,20 @@ import {
 } from "./produce-burst";
 
 describe("produceBurstParamsSchema", () => {
+  /** The web form's labels come from this metadata via z.toJSONSchema (see
+   * registry.ts's describe()). Nothing else would notice if a zod upgrade stopped
+   * emitting it -- the form would quietly fall back to raw property names. Parsed
+   * with zod rather than cast, so this stays honest about the shape it asserts. */
+  test("carries field metadata through to the generated JSON Schema", () => {
+    const json = z.toJSONSchema(produceBurstParamsSchema, { io: "input" });
+
+    const parsed = z
+      .object({ properties: z.object({ keyStrategy: z.object({ title: z.string() }) }) })
+      .parse(json);
+
+    expect(parsed.properties.keyStrategy.title).toBe("キーの決め方");
+  });
+
   test("applies documented defaults when no fields are given", () => {
     const params = produceBurstParamsSchema.parse({});
 

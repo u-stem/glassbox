@@ -1,11 +1,30 @@
 import { ulid } from "ulid";
 import { z } from "zod";
 
+/** `.meta()` only affects the JSON Schema the web form is generated from (see
+ * registry.ts's describe()); parsing is unchanged. Without it the form labels each
+ * field with its raw property name, which is exactly the vocabulary a newcomer to
+ * Kafka is stuck on. */
 export const produceBurstParamsSchema = z.object({
-  topic: z.string().default("glassbox.demo"),
-  count: z.number().int().min(1).max(1000).default(10),
-  rateMs: z.number().int().min(0).max(1000).default(50),
-  keyStrategy: z.enum(["round-robin", "keyed"]).default("round-robin"),
+  topic: z.string().default("glassbox.demo").meta({ title: "送信先トピック" }),
+  count: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .default(10)
+    .meta({ title: "送る件数", description: "1〜1000" }),
+  rateMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(1000)
+    .default(50)
+    .meta({ title: "送信間隔(ミリ秒)", description: "0 にすると間を空けずに連続送信する" }),
+  keyStrategy: z.enum(["round-robin", "keyed"]).default("round-robin").meta({
+    title: "キーの決め方",
+    description: "keyed は同じキーを同じパーティションへ、round-robin は全体へ分散させる",
+  }),
 });
 
 export type ProduceBurstParams = z.infer<typeof produceBurstParamsSchema>;

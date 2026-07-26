@@ -48,13 +48,18 @@ export function ScenarioForm({
     <div className="flex flex-wrap items-end gap-3">
       {fields.map((field) => {
         const inputId = `${scenario.id}-${field.name}`;
+        const descriptionId = `${inputId}-description`;
         return (
-          <label key={field.name} htmlFor={inputId} className="flex flex-col gap-1 text-sm">
-            {field.name}
+          // The label is a sibling of the input rather than wrapping it, and the help
+          // text is linked with aria-describedby: wrapped, the description would be
+          // read out as part of the field's own name.
+          <div key={field.name} className="flex flex-col gap-1 text-sm">
+            <label htmlFor={inputId}>{field.label ?? field.name}</label>
             {field.kind === "enum" ? (
               <select
                 id={inputId}
                 value={values[field.name] ?? ""}
+                {...(field.description === undefined ? {} : { "aria-describedby": descriptionId })}
                 onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
                 className={INPUT_CLASS}
               >
@@ -71,14 +76,20 @@ export function ScenarioForm({
                 value={values[field.name] ?? ""}
                 min={field.kind === "number" ? field.min : undefined}
                 max={field.kind === "number" ? field.max : undefined}
-                placeholder={field.required ? "required" : undefined}
+                placeholder={field.required ? "必須" : undefined}
+                {...(field.description === undefined ? {} : { "aria-describedby": descriptionId })}
                 onChange={(e) => setValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
                 className={INPUT_CLASS}
               />
             )}
+            {field.description !== undefined && (
+              <span id={descriptionId} className="max-w-48 text-xs text-(--text-secondary)">
+                {field.description}
+              </span>
+            )}
             {fieldErrors[field.name] && (
-              // The dot lives inside this span: the label is a flex column, so a sibling
-              // would stack above the message instead of sitting beside it.
+              // The dot lives inside this span so it sits beside the message rather
+              // than stacking above it in this flex column.
               <span className="flex items-center gap-1.5 text-xs">
                 <span
                   aria-hidden="true"
@@ -88,18 +99,21 @@ export function ScenarioForm({
                 {fieldErrors[field.name]}
               </span>
             )}
-          </label>
+          </div>
         );
       })}
+      {/* The visible label stays short -- the Japanese scenario titles are a sentence
+       * long -- while the accessible name still says which scenario it runs. */}
       <button
         type="button"
         onClick={() => {
           void handleSubmit();
         }}
         disabled={isSubmitting}
+        aria-label={`${scenario.title} を実行`}
         className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
       >
-        Run {scenario.title}
+        実行
       </button>
     </div>
   );

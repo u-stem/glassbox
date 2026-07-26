@@ -12,6 +12,11 @@ export interface JsonSchemaProperty {
   maximum?: number;
   exclusiveMinimum?: number;
   exclusiveMaximum?: number;
+  /** From the scenario's `.meta({ title })` on the gateway: a human-readable label
+   * for the input, in place of the raw property name. */
+  title?: string;
+  /** From `.meta({ description })`: help text shown under the input. */
+  description?: string;
 }
 
 export interface JsonSchemaObject {
@@ -20,27 +25,36 @@ export interface JsonSchemaObject {
   required?: readonly string[];
 }
 
+/**
+ * Copy shared by every field kind. `label` and `description` are optional and are
+ * omitted rather than set to undefined when the schema carries no metadata: the form
+ * falls back to the property name (the same `title ?? id` shape the gateway's
+ * describe() uses), and callers constructing fields by hand stay valid.
+ */
+interface ScenarioFormFieldBase {
+  name: string;
+  label?: string;
+  description?: string;
+  required: boolean;
+}
+
 export type ScenarioFormField =
-  | {
+  | (ScenarioFormFieldBase & {
       kind: "enum";
-      name: string;
       options: readonly string[];
       defaultValue: string;
-      required: boolean;
-    }
-  | {
+    })
+  | (ScenarioFormFieldBase & {
       kind: "number";
-      name: string;
       defaultValue: number | undefined;
       min: number | undefined;
       max: number | undefined;
-      required: boolean;
-    }
-  | { kind: "string"; name: string; defaultValue: string; required: boolean }
+    })
+  | (ScenarioFormFieldBase & { kind: "string"; defaultValue: string })
   // Fallback for array/object/boolean params (e.g. add-consumer's `topics` array):
   // edited as raw JSON text rather than growing dedicated widgets for every shape,
   // per the plan ("数値・enum・文字列の 3 種で十分").
-  | { kind: "json"; name: string; defaultValue: string; required: boolean };
+  | (ScenarioFormFieldBase & { kind: "json"; defaultValue: string });
 
 /**
  * Resolves an HTML <input type="number"> `min`/`max` bound from a JSON Schema
@@ -73,40 +87,45 @@ function numericBound(
 }
 
 function toField(name: string, prop: JsonSchemaProperty, required: boolean): ScenarioFormField {
+  // Spread-in rather than assigned, so a property with no metadata produces a field
+  // object without the key at all (exactOptionalPropertyTypes rules out `undefined`).
+  const base = {
+    name,
+    required,
+    ...(prop.title === undefined ? {} : { label: prop.title }),
+    ...(prop.description === undefined ? {} : { description: prop.description }),
+  };
+
   if (prop.enum !== undefined) {
     const fallback = prop.enum[0] ?? "";
     return {
+      ...base,
       kind: "enum",
-      name,
       options: prop.enum,
       defaultValue: typeof prop.default === "string" ? prop.default : fallback,
-      required,
     };
   }
   if (prop.type === "number" || prop.type === "integer") {
     const isInteger = prop.type === "integer";
     return {
+      ...base,
       kind: "number",
-      name,
       defaultValue: typeof prop.default === "number" ? prop.default : undefined,
       min: numericBound(prop.minimum, prop.exclusiveMinimum, isInteger, "min"),
       max: numericBound(prop.maximum, prop.exclusiveMaximum, isInteger, "max"),
-      required,
     };
   }
   if (prop.type === "string") {
     return {
+      ...base,
       kind: "string",
-      name,
       defaultValue: typeof prop.default === "string" ? prop.default : "",
-      required,
     };
   }
   return {
+    ...base,
     kind: "json",
-    name,
     defaultValue: JSON.stringify(prop.default ?? null),
-    required,
   };
 }
 

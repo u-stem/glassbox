@@ -24,6 +24,7 @@ import {
   createRemoveConsumerScenario,
   createSlowConsumerScenario,
 } from "./themes/kafka/scenarios/consumer-scenarios";
+import { SCENARIO_COPY } from "./themes/kafka/scenarios/metadata";
 import {
   createProduceBurstRunner,
   produceBurstParamsSchema,
@@ -101,29 +102,27 @@ const consumerRegistry = createConsumerRegistry({
   },
 });
 
+// The copy spreads *after* each factory so it overrides whatever the definition
+// carries; reversing the order would silently drop it.
 const scenarioRegistry = createScenarioRegistry([
   defineScenario({
     id: "produce-burst",
-    title: "Produce burst",
-    description: "Sends `count` messages to a topic, one every `rateMs`.",
+    ...SCENARIO_COPY["produce-burst"],
     paramsSchema: produceBurstParamsSchema,
     isConflicting: () => produceBurstRunner.isRunning(),
     start: (params) => produceBurstRunner.run(params),
   }),
   defineScenario({
     ...createAddConsumerScenario(consumerRegistry, eventBus),
-    title: "Add consumer",
-    description: "Joins a fresh consumer to the group, triggering a rebalance.",
+    ...SCENARIO_COPY["add-consumer"],
   }),
   defineScenario({
     ...createRemoveConsumerScenario(consumerRegistry, eventBus),
-    title: "Remove consumer",
-    description: "Removes a consumer, gracefully (immediate) or by kill (session timeout).",
+    ...SCENARIO_COPY["remove-consumer"],
   }),
   defineScenario({
     ...createSlowConsumerScenario(consumerRegistry, eventBus),
-    title: "Slow consumer",
-    description: "Adds a per-message processing delay to an existing consumer, so lag accrues.",
+    ...SCENARIO_COPY["slow-consumer"],
   }),
 ]);
 

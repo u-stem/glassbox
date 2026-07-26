@@ -30,14 +30,38 @@ function publishScenarioEvent(
 const MAX_TIMEOUT_MS = 5 * 60 * 1000;
 
 export const addConsumerParamsSchema = z.object({
-  groupId: z.string().default("glassbox-consumers"),
-  topics: z.array(z.string()).default(["glassbox.demo"]),
+  groupId: z.string().default("glassbox-consumers").meta({
+    title: "consumer group の ID",
+    description: "同じ ID を指定した consumer が 1 つの group を作る",
+  }),
+  topics: z
+    .array(z.string())
+    .default(["glassbox.demo"])
+    .meta({ title: "購読するトピック(JSON 配列)" }),
   // Overrides mainly used by integration tests (see ConsumerActor's doc) to keep a
   // "kill" removal's session-timeout wait short instead of the library's 1-minute
   // default.
-  sessionTimeoutMs: z.number().int().positive().max(MAX_TIMEOUT_MS).optional(),
-  rebalanceTimeoutMs: z.number().int().positive().max(MAX_TIMEOUT_MS).optional(),
-  heartbeatIntervalMs: z.number().int().positive().max(MAX_TIMEOUT_MS).optional(),
+  sessionTimeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_TIMEOUT_MS)
+    .optional()
+    .meta({ title: "セッションタイムアウト(ミリ秒)", description: "未指定なら既定の 60 秒" }),
+  rebalanceTimeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_TIMEOUT_MS)
+    .optional()
+    .meta({ title: "リバランスタイムアウト(ミリ秒)", description: "主に統合テスト用" }),
+  heartbeatIntervalMs: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_TIMEOUT_MS)
+    .optional()
+    .meta({ title: "ハートビート間隔(ミリ秒)", description: "主に統合テスト用" }),
 });
 export type AddConsumerParams = z.infer<typeof addConsumerParamsSchema>;
 
@@ -81,8 +105,12 @@ export function createAddConsumerScenario(
 }
 
 export const removeConsumerParamsSchema = z.object({
-  consumerId: z.string(),
-  mode: z.enum(["graceful", "kill"]).default("graceful"),
+  consumerId: z.string().meta({ title: "対象の consumer ID", description: "例: consumer-1" }),
+  mode: z.enum(["graceful", "kill"]).default("graceful").meta({
+    title: "削除の仕方",
+    description:
+      "graceful は離脱通知を送って即座に抜け、kill は接続を切りセッションタイムアウトまで残る",
+  }),
 });
 export type RemoveConsumerParams = z.infer<typeof removeConsumerParamsSchema>;
 
@@ -113,8 +141,13 @@ export function createRemoveConsumerScenario(
 }
 
 export const slowConsumerParamsSchema = z.object({
-  consumerId: z.string(),
-  processingDelayMs: z.number().int().min(0).max(5000),
+  consumerId: z.string().meta({ title: "対象の consumer ID", description: "例: consumer-1" }),
+  processingDelayMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(5000)
+    .meta({ title: "1 件あたりの処理遅延(ミリ秒)", description: "大きくするほどラグが増える" }),
 });
 export type SlowConsumerParams = z.infer<typeof slowConsumerParamsSchema>;
 

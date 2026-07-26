@@ -152,3 +152,34 @@ describe("schemaToFields", () => {
     expect(fields.map((f) => f.name)).toEqual(["b", "a"]);
   });
 });
+
+describe("schemaToFields field copy", () => {
+  test("carries a property's title through as its label", () => {
+    const fields = schemaToFields({
+      type: "object",
+      properties: { count: { type: "integer", title: "送る件数" } },
+    });
+
+    expect(fields[0]?.label).toBe("送る件数");
+  });
+
+  test("carries a property's description through", () => {
+    const fields = schemaToFields({
+      type: "object",
+      properties: { count: { type: "integer", description: "1〜1000" } },
+    });
+
+    expect(fields[0]?.description).toBe("1〜1000");
+  });
+
+  /** Absent rather than undefined, so every existing toEqual in this file keeps
+   * passing untouched and the form can fall back to the property name. */
+  test("omits the label entirely when the property has no title", () => {
+    const fields = schemaToFields({
+      type: "object",
+      properties: { count: { type: "integer" } },
+    });
+
+    expect(fields[0]).not.toHaveProperty("label");
+  });
+});
