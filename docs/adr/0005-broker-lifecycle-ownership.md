@@ -62,5 +62,5 @@ Kafka ブローカーの起動は CLI(`docker compose -f docker/compose.yaml up 
 - 環境の状態源が 2 つ(gateway の `/healthz` と docker の `compose ps`)になる。両者は正当に食い違う(例: コンテナは `running` だが healthcheck 待ちで gateway はまだ繋がれない)。ADR-0003 が確立した「フィールドごとに権威を明文化する」規律をここにも適用し、UI では 1 つのラベルに丸めず「gateway 接続」と「ブローカー(コンテナ)」を別の行として併記する。
 - ブローカー停止時、healthz 側のヒステリシス(2 連続失敗、5 秒間隔)により最大 10 秒ほど gateway 行が「接続 OK」のまま残る。ラベルが分離されていれば「gateway がまだ接続断を検知していない」という事実の正確な表示であり、ヒステリシスは変更しない。
 - `docker` が使えない環境(未インストール・デーモン停止)では、ボタンを出さず従来のコマンド案内へ degrade する。この経路は壊さない。
-- ブローカー停止 → 再開後、consumer の一部は消費ストリームが reject したまま復帰しない(実測)。この決定に伴って `consumer-registry` は、消費開始に失敗した consumer を kill モードで撤去するようになった。撤去しなければゾンビが `MAX_CONSUMERS` の枠を占め続け、UI にも生きた member として表示され続ける。graceful では停止したブローカーに LeaveGroup が届かず、`@platformatic/kafka` の `Consumer` がメンバーシップを維持し続けてしまうため、kill でなければならない。実測の詳細は [`docs/themes/kafka.md`](../themes/kafka.md) の「既知の限界」に記録した。
-- 上記の撤去とセッションタイムアウトを経て、生き残った consumer が全パーティションを引き継ぐリバランスが起きる。停止ボタンは「ブローカー障害でグループがどう再編されるか」を 1 クリックで再現できる教材にもなっている。
+- ブローカー停止 → 再開後、consumer の一部は消費ストリームが reject したまま復帰しない(実測)。復旧は手動(consumer を削除して追加し直す)であり、自動化は**試したうえで見送った**。`onConsumeError` を受けて consumer を自動撤去する実装を入れたところ、同じ reject が通常のリバランス中にも `TimeoutError: Request timed out` として発生し(レッスン B の E2E で毎回再現)、追加したばかりの健全な consumer が消えるようになった。「消費していない member が残る」より「操作した直後に consumer が消える」ほうが体験として悪いため、レジストリはエラーを記録するだけに留めている。実測の詳細は [`docs/themes/kafka.md`](../themes/kafka.md) の「既知の限界」に記録した。
+- したがってブローカーの停止/再開は、consumer を観察している最中に行うと手動の作り直しが必要になる。producer と admin poller については自動で復帰するため、パーティションとオフセットの観察に限れば停止ボタンはそのまま使える。

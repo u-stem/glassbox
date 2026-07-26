@@ -107,24 +107,6 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
   let nextIndex = 1;
   let joinDelayMs = 0;
 
-  async function removeConsumer(clientId: string, mode: "graceful" | "kill"): Promise<void> {
-    const actor = consumers.get(clientId);
-    if (actor === undefined) {
-      return;
-    }
-    consumers.delete(clientId);
-    await actor.close(mode);
-
-    if (mode === "kill") {
-      const delayMs = actor.getSessionTimeoutMs() + KILL_TEARDOWN_MARGIN_MS;
-      scheduleDelayed(() => {
-        actor.finalizeKillTeardown().catch((error: unknown) => {
-          options.onTeardownError?.(clientId, error);
-        });
-      }, delayMs);
-    }
-  }
-
   return {
     add({ groupId, topics, sessionTimeoutMs, rebalanceTimeoutMs, heartbeatIntervalMs }) {
       if (consumers.size >= MAX_CONSUMERS) {
@@ -150,23 +132,17 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
       });
       consumers.set(clientId, actor);
 
+      // Reported but deliberately NOT unregistered. Auto-removing the actor here was
+      // tried while adding the broker stop/start buttons (ADR-0005), because a consumer
+      // whose stream rejected does not retry and thus lingers as a member that no
+      // longer consumes. It was reverted: this same rejection also arrives as a plain
+      // `TimeoutError` during an ordinary rebalance (measured on every run of the
+      // lesson B walkthrough), so unregistering on it deletes healthy consumers the
+      // user just added -- a worse failure than the lingering one it fixed. Recovering
+      // from a stopped broker is therefore manual (remove the consumer and add it
+      // again); see docs/themes/kafka.md's 既知の限界.
       void actor.startConsuming(topics).catch((error: unknown) => {
         options.onConsumeError?.(clientId, error);
-        // The consume stream never retries on its own (see ConsumerActor's class doc),
-        // so an actor whose stream rejected is dead but would otherwise stay
-        // registered: occupying a MAX_CONSUMERS slot and still being reported to the
-        // UI as a live group member. Measured against a real broker while stopping and
-        // restarting it from the home screen (ADR-0005), where exactly this happens.
-        //
-        // Torn down as "kill", not "graceful": a graceful close tries a LeaveGroup that
-        // cannot reach a broker that went away, and the underlying Consumer was then
-        // observed keeping its membership alive indefinitely -- the broker still
-        // reported it as a STABLE member holding every partition minutes later. The
-        // kill path severs the connections instead, so the broker expires the member
-        // by session timeout and a freshly added consumer gets a real assignment.
-        void removeConsumer(clientId, "kill").catch((teardownError: unknown) => {
-          options.onTeardownError?.(clientId, teardownError);
-        });
       });
 
       return actor;
@@ -176,7 +152,23 @@ export function createConsumerRegistry(options: ConsumerRegistryOptions): Consum
       return consumers.get(clientId);
     },
 
-    remove: removeConsumer,
+    async remove(clientId, mode) {
+      const actor = consumers.get(clientId);
+      if (actor === undefined) {
+        return;
+      }
+      consumers.delete(clientId);
+      await actor.close(mode);
+
+      if (mode === "kill") {
+        const delayMs = actor.getSessionTimeoutMs() + KILL_TEARDOWN_MARGIN_MS;
+        scheduleDelayed(() => {
+          actor.finalizeKillTeardown().catch((error: unknown) => {
+            options.onTeardownError?.(clientId, error);
+          });
+        }, delayMs);
+      }
+    },
 
     all() {
       return [...consumers.values()];
