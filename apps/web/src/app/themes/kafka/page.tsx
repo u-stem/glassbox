@@ -8,8 +8,13 @@ import {
   closeDrawer,
   type DrawerState,
   initialDrawerState,
+  openGlossaryAt,
   toggleDrawer,
 } from "@/themes/kafka/drawer/drawer-state";
+import { GlossaryContext } from "@/themes/kafka/glossary/GlossaryContext";
+import { GlossaryList } from "@/themes/kafka/glossary/GlossaryList";
+import { GlossaryMarker } from "@/themes/kafka/glossary/GlossaryTerm";
+import type { GlossaryTermId } from "@/themes/kafka/glossary/types";
 import { LessonPanel } from "@/themes/kafka/lessons/LessonPanel";
 import { lessons } from "@/themes/kafka/lessons/lessons";
 import { findLessonByParam } from "@/themes/kafka/lessons/navigation";
@@ -84,6 +89,13 @@ export default function KafkaThemePage({
   const lessonToggleRef = useRef<HTMLButtonElement>(null);
 
   const isLessonOpen = drawer.isOpen && drawer.content === "lesson";
+  const isGlossaryOpen = drawer.isOpen && drawer.content === "glossary";
+  // Stable across renders so the memoized panels don't re-render just because a new
+  // context value object was created.
+  const glossary = useMemo(
+    () => ({ openGlossary: (id: string) => setDrawer(openGlossaryAt(id)) }),
+    [],
+  );
 
   // Focus moves into the drawer whenever it opens so keyboard users land in the new
   // content, and below `lg` (where the drawer sits above the grid) this doubles as
@@ -197,178 +209,241 @@ export default function KafkaThemePage({
     // viz-root must sit on the page root, not on the width-limited inner div: the tokens
     // are only defined inside .viz-root, and a centered max-w container would leave the
     // page plane unpainted outside 80rem (see the home page for the same two-layer shape).
-    <main className="viz-root min-h-screen bg-(--page-plane) text-(--text-primary)">
-      {/* min-w-0 on the main column switches off the flex default of min-width:auto.
-       * Without it the topology canvas's own min-width would widen this column and
-       * push the whole page sideways, instead of scrolling inside the canvas. */}
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6 lg:flex-row lg:items-start">
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-col gap-0.5">
-              <h1 className="text-2xl font-bold">Kafka ダッシュボード</h1>
-              <p className="text-sm text-(--text-secondary)">
-                producer → topic → consumer group の流れをリアルタイムに観察する
-              </p>
+    <GlossaryContext value={glossary}>
+      <main className="viz-root min-h-screen bg-(--page-plane) text-(--text-primary)">
+        {/* min-w-0 on the main column switches off the flex default of min-width:auto.
+         * Without it the topology canvas's own min-width would widen this column and
+         * push the whole page sideways, instead of scrolling inside the canvas. */}
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 p-6 lg:flex-row lg:items-start">
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <h1 className="text-2xl font-bold">Kafka ダッシュボード</h1>
+                <p className="text-sm text-(--text-secondary)">
+                  producer → topic → consumer group の流れをリアルタイムに観察する
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  ref={lessonToggleRef}
+                  aria-expanded={isLessonOpen}
+                  aria-controls={DRAWER_ID}
+                  onClick={() => setDrawer((state) => toggleDrawer(state, "lesson"))}
+                  className={
+                    isLessonOpen
+                      ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
+                      : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
+                  }
+                >
+                  レッスン
+                </button>
+                <button
+                  type="button"
+                  aria-expanded={isGlossaryOpen}
+                  aria-controls={DRAWER_ID}
+                  onClick={() => setDrawer((state) => toggleDrawer(state, "glossary"))}
+                  className={
+                    isGlossaryOpen
+                      ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
+                      : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
+                  }
+                >
+                  用語集
+                </button>
+                <TimeTravelButton onEnter={enterTimeTravel} disabled={isTimeTravel} />
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+
+            <section className="flex flex-wrap items-end gap-4 rounded border border-(--border) bg-(--surface-1) p-3">
+              <ScenarioRunner gatewayUrl={GATEWAY_URL} onError={setScenarioError} />
+
+              <label className="flex flex-col gap-1 text-sm">
+                slow-motion factorMs
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  value={slowMotionFactorMs}
+                  onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
+                  className="w-24 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-(--text-primary)"
+                />
+              </label>
+              {/* Filled while on, outlined while off -- the state has to survive without the
+               * hue the old purple carried, and aria-pressed carries it for assistive tech. */}
               <button
                 type="button"
-                ref={lessonToggleRef}
-                aria-expanded={isLessonOpen}
-                aria-controls={DRAWER_ID}
-                onClick={() => setDrawer((state) => toggleDrawer(state, "lesson"))}
+                aria-pressed={slowMotionEnabled}
+                onClick={() => {
+                  void handleSlowMotionToggle();
+                }}
                 className={
-                  isLessonOpen
+                  slowMotionEnabled
                     ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
                     : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
                 }
               >
-                レッスン
+                Slow-motion: {slowMotionEnabled ? "ON" : "OFF"}
               </button>
-              <TimeTravelButton onEnter={enterTimeTravel} disabled={isTimeTravel} />
+
+              {scenarioError && <ErrorLine>{scenarioError}</ErrorLine>}
+              {consumerActionError && <ErrorLine>{consumerActionError}</ErrorLine>}
+            </section>
+
+            {timeTravel !== undefined && (
+              <TimeTravelBar
+                min={seqRange(timeTravel.index.ascendingEvents)?.min ?? 0}
+                max={seqRange(timeTravel.index.ascendingEvents)?.max ?? 0}
+                value={timeTravel.seekSeq}
+                onExit={() => setTimeTravel(undefined)}
+                onSeek={(seq) =>
+                  setTimeTravel((prev) => (prev === undefined ? prev : { ...prev, seekSeq: seq }))
+                }
+              />
+            )}
+
+            <div className={drawer.isOpen ? PANEL_GRID_NARROW : PANEL_GRID_WIDE}>
+              <section
+                className={`${PANEL_SECTION_CLASS} lg:col-span-2`}
+                aria-labelledby="panel-topology"
+              >
+                <PanelHeading id="panel-topology" ja="トポロジー" en="Topology" term="topology" />
+                <TopologyCanvas topic={topic} groups={displayGroups} events={displayEvents} />
+              </section>
+
+              <section className={PANEL_SECTION_CLASS} aria-labelledby="panel-rebalance">
+                <PanelHeading
+                  id="panel-rebalance"
+                  ja="リバランス状態"
+                  en="Rebalance state"
+                  term="rebalance"
+                  {...(primaryGroup === undefined ? {} : { suffix: `— ${primaryGroup.groupId}` })}
+                />
+                <RebalanceDiagram
+                  groupId={rebalanceGroupId}
+                  {...(rebalanceOverride === undefined ? {} : { override: rebalanceOverride })}
+                />
+              </section>
+
+              <section className={PANEL_SECTION_CLASS} aria-labelledby="panel-partitions">
+                <PanelHeading
+                  id="panel-partitions"
+                  ja="パーティション"
+                  en="Partitions"
+                  term="partition"
+                  {...(topic === undefined ? {} : { suffix: `— ${topic.name}` })}
+                />
+                <PartitionBoard topic={topic} groups={displayGroups} />
+              </section>
+
+              <section
+                className={`${PANEL_SECTION_CLASS} lg:col-span-2`}
+                aria-labelledby="panel-timeline"
+              >
+                <PanelHeading
+                  id="panel-timeline"
+                  ja="イベントタイムライン"
+                  en="Event timeline"
+                  term="event"
+                />
+                <Timeline events={displayEvents} />
+              </section>
             </div>
           </div>
 
-          <section className="flex flex-wrap items-end gap-4 rounded border border-(--border) bg-(--surface-1) p-3">
-            <ScenarioRunner gatewayUrl={GATEWAY_URL} onError={setScenarioError} />
-
-            <label className="flex flex-col gap-1 text-sm">
-              slow-motion factorMs
-              <input
-                type="number"
-                min={0}
-                max={10000}
-                value={slowMotionFactorMs}
-                onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
-                className="w-24 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-(--text-primary)"
-              />
-            </label>
-            {/* Filled while on, outlined while off -- the state has to survive without the
-             * hue the old purple carried, and aria-pressed carries it for assistive tech. */}
-            <button
-              type="button"
-              aria-pressed={slowMotionEnabled}
-              onClick={() => {
-                void handleSlowMotionToggle();
-              }}
-              className={
-                slowMotionEnabled
-                  ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
-                  : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
+          {/* order-first below `lg`: stacked vertically the drawer has to come before the
+           * panels, or opening a lesson would place it thousands of pixels below the fold
+           * and reading the step would scroll the visualisation it talks about off screen.
+           * At `lg` and up it returns to being the right-hand column.
+           * The sticky offset is the AppHeader's h-14 (3.5rem) plus its border. */}
+          <aside
+            id={DRAWER_ID}
+            aria-label={drawer.content === "glossary" ? "用語集" : "ガイド付きレッスン"}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                dismissDrawer();
               }
-            >
-              Slow-motion: {slowMotionEnabled ? "ON" : "OFF"}
-            </button>
-
-            {scenarioError && <ErrorLine>{scenarioError}</ErrorLine>}
-            {consumerActionError && <ErrorLine>{consumerActionError}</ErrorLine>}
-          </section>
-
-          {timeTravel !== undefined && (
-            <TimeTravelBar
-              min={seqRange(timeTravel.index.ascendingEvents)?.min ?? 0}
-              max={seqRange(timeTravel.index.ascendingEvents)?.max ?? 0}
-              value={timeTravel.seekSeq}
-              onExit={() => setTimeTravel(undefined)}
-              onSeek={(seq) =>
-                setTimeTravel((prev) => (prev === undefined ? prev : { ...prev, seekSeq: seq }))
-              }
-            />
-          )}
-
-          <div className={drawer.isOpen ? PANEL_GRID_NARROW : PANEL_GRID_WIDE}>
-            <section
-              className={`${PANEL_SECTION_CLASS} lg:col-span-2`}
-              aria-labelledby="panel-topology"
-            >
-              <h2 id="panel-topology" className="text-lg font-semibold">
-                Topology
-              </h2>
-              <TopologyCanvas topic={topic} groups={displayGroups} events={displayEvents} />
-            </section>
-
-            <section className={PANEL_SECTION_CLASS} aria-labelledby="panel-rebalance">
-              <h2 id="panel-rebalance" className="text-lg font-semibold">
-                Rebalance state {primaryGroup ? `— ${primaryGroup.groupId}` : ""}
-              </h2>
-              <RebalanceDiagram
-                groupId={rebalanceGroupId}
-                {...(rebalanceOverride === undefined ? {} : { override: rebalanceOverride })}
-              />
-            </section>
-
-            <section className={PANEL_SECTION_CLASS} aria-labelledby="panel-partitions">
-              <h2 id="panel-partitions" className="text-lg font-semibold">
-                Partitions {topic ? `— ${topic.name}` : ""}
-              </h2>
-              <PartitionBoard topic={topic} groups={displayGroups} />
-            </section>
-
-            <section
-              className={`${PANEL_SECTION_CLASS} lg:col-span-2`}
-              aria-labelledby="panel-timeline"
-            >
-              <h2 id="panel-timeline" className="text-lg font-semibold">
-                Event timeline
-              </h2>
-              <Timeline events={displayEvents} />
-            </section>
-          </div>
-        </div>
-
-        {/* order-first below `lg`: stacked vertically the drawer has to come before the
-         * panels, or opening a lesson would place it thousands of pixels below the fold
-         * and reading the step would scroll the visualisation it talks about off screen.
-         * At `lg` and up it returns to being the right-hand column.
-         * The sticky offset is the AppHeader's h-14 (3.5rem) plus its border. */}
-        <aside
-          id={DRAWER_ID}
-          aria-label={drawer.content === "glossary" ? "用語集" : "ガイド付きレッスン"}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              dismissDrawer();
+            }}
+            className={
+              drawer.isOpen
+                ? "order-first flex w-full shrink-0 flex-col gap-3 rounded border border-(--border) bg-(--surface-1) p-4 lg:sticky lg:top-[3.75rem] lg:order-none lg:max-h-[calc(100vh-4.75rem)] lg:w-80 lg:self-start lg:overflow-y-auto"
+                : "hidden"
             }
-          }}
-          className={
-            drawer.isOpen
-              ? "order-first flex w-full shrink-0 flex-col gap-3 rounded border border-(--border) bg-(--surface-1) p-4 lg:sticky lg:top-[3.75rem] lg:order-none lg:max-h-[calc(100vh-4.75rem)] lg:w-80 lg:self-start lg:overflow-y-auto"
-              : "hidden"
-          }
-        >
-          <div className="flex items-center justify-between">
-            <h2 ref={drawerHeadingRef} tabIndex={-1} className="text-base font-semibold">
-              {drawer.content === "glossary" ? "用語集" : "レッスン"}
-            </h2>
-            <button
-              type="button"
-              onClick={dismissDrawer}
-              className="text-sm text-(--text-secondary) hover:text-(--text-primary)"
-            >
-              閉じる
-            </button>
-          </div>
+          >
+            <div className="flex items-center justify-between">
+              <h2 ref={drawerHeadingRef} tabIndex={-1} className="text-base font-semibold">
+                {drawer.content === "glossary" ? "用語集" : "レッスン"}
+              </h2>
+              <button
+                type="button"
+                onClick={dismissDrawer}
+                className="text-sm text-(--text-secondary) hover:text-(--text-primary)"
+              >
+                閉じる
+              </button>
+            </div>
 
-          {drawer.content === "lesson" && (
-            <LessonPanel
-              gatewayUrl={GATEWAY_URL}
-              onError={setConsumerActionError}
-              onSlowMotionChanged={setSlowMotionEnabled}
-              activeLesson={activeLesson}
-              stepIndex={stepIndex}
-              onSelectLesson={(lesson) => {
-                setActiveLesson(lesson);
-                setStepIndex(0);
-              }}
-              onStepIndexChange={setStepIndex}
-              onExitLesson={() => {
-                setActiveLesson(undefined);
-                setStepIndex(0);
-              }}
-            />
-          )}
-        </aside>
-      </div>
-    </main>
+            {drawer.content === "glossary" ? (
+              <GlossaryList
+                {...(drawer.focusTermId === undefined ? {} : { focusTermId: drawer.focusTermId })}
+              />
+            ) : (
+              <LessonPanel
+                gatewayUrl={GATEWAY_URL}
+                onError={setConsumerActionError}
+                onSlowMotionChanged={setSlowMotionEnabled}
+                activeLesson={activeLesson}
+                stepIndex={stepIndex}
+                onSelectLesson={(lesson) => {
+                  setActiveLesson(lesson);
+                  setStepIndex(0);
+                }}
+                onStepIndexChange={setStepIndex}
+                onExitLesson={() => {
+                  setActiveLesson(undefined);
+                  setStepIndex(0);
+                }}
+              />
+            )}
+          </aside>
+        </div>
+      </main>
+    </GlossaryContext>
+  );
+}
+
+/**
+ * Panel heading: Japanese leads, the English term follows in the same `<h2>` so the
+ * region's accessible name carries both, and the glossary marker sits outside the
+ * heading so it doesn't end up in that name.
+ */
+function PanelHeading({
+  id,
+  ja,
+  en,
+  term,
+  suffix,
+}: {
+  id: string;
+  ja: string;
+  en: string;
+  term: GlossaryTermId;
+  suffix?: string;
+}) {
+  return (
+    // Inline flow rather than flex: a heading long enough to wrap (the rebalance one,
+    // once a groupId is appended) would be a full-width flex item, stranding the
+    // marker at the far right instead of beside the words it annotates.
+    <div className="text-lg font-semibold">
+      <h2 id={id} className="inline">
+        {ja}
+        <span className="ml-1 text-sm font-normal text-(--text-secondary)">({en})</span>
+        {suffix !== undefined && (
+          <span className="ml-1 text-sm font-normal text-(--text-secondary)">{suffix}</span>
+        )}
+      </h2>{" "}
+      <GlossaryMarker id={term} />
+    </div>
   );
 }
 
