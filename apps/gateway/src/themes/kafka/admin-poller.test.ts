@@ -527,3 +527,80 @@ describe("createAdminPoller kafkaStatus", () => {
     expect(poller.kafkaStatus()).toBe("connected");
   });
 });
+
+describe("createAdminPoller onReachable", () => {
+  test("fires once the broker first answers", async () => {
+    let calls = 0;
+    const poller = createAdminPoller(makeSucceedingAdmin(), {
+      intervalMs: 10,
+      onSnapshot: () => {},
+      onReachable: () => {
+        calls += 1;
+      },
+    });
+
+    poller.start();
+    await sleep(30);
+    poller.stop();
+
+    expect(calls).toBe(1);
+  });
+
+  test("does not fire again while the broker stays reachable", async () => {
+    let calls = 0;
+    const poller = createAdminPoller(makeSucceedingAdmin(), {
+      intervalMs: 10,
+      onSnapshot: () => {},
+      onReachable: () => {
+        calls += 1;
+      },
+    });
+
+    poller.start();
+    await sleep(60);
+    poller.stop();
+
+    expect(calls).toBe(1);
+  });
+
+  test("fires again after the broker went away and came back", async () => {
+    let calls = 0;
+    const admin = makeFailingAdmin();
+    const poller = createAdminPoller(admin, {
+      intervalMs: 10,
+      onSnapshot: () => {},
+      onError: () => {},
+      onReachable: () => {
+        calls += 1;
+      },
+    });
+
+    poller.start();
+    await sleep(30);
+    admin.listTopics = async () => [];
+    await sleep(30);
+    poller.stop();
+
+    expect(calls).toBe(1);
+  });
+
+  test("keeps polling when onReachable throws", async () => {
+    let snapshots = 0;
+    const poller = createAdminPoller(makeSucceedingAdmin(), {
+      intervalMs: 10,
+      onSnapshot: () => {
+        snapshots += 1;
+      },
+      onError: () => {},
+      onReachable: () => {
+        throw new Error("topic reconcile failed");
+      },
+    });
+
+    poller.start();
+    await sleep(40);
+    poller.stop();
+
+    expect(snapshots).toBeGreaterThan(0);
+  });
+});

@@ -139,6 +139,13 @@ const adminPoller = createAdminPoller(admin, {
   onError: (error) => {
     app.log.error(error, "admin-poller tick failed");
   },
+  // Reconciled rather than done once at boot (ADR-0005): this is what allows the
+  // gateway to start with no broker at all, and it also re-creates the topic after a
+  // stop/start cycle or a container recreation (compose.yaml declares no named
+  // volume, and auto-create is disabled, so a recreated container comes back empty).
+  onReachable: async () => {
+    await ensureDemoTopic();
+  },
 });
 
 async function ensureDemoTopic(): Promise<void> {
@@ -291,9 +298,15 @@ app.post("/api/themes/kafka/slow-motion", async (request, reply) => {
   return reply.code(200).send({ enabled, factorMs: enabled ? factorMs : 0 });
 });
 
+/**
+ * Deliberately does not touch Kafka: the demo topic is reconciled by the admin
+ * poller's onReachable hook instead (ADR-0005). Awaiting a broker RPC here used to
+ * mean the gateway could not start at all while the broker was down -- which in turn
+ * made "start the broker from the UI" impossible, since the process serving that UI's
+ * API was the one that could not boot.
+ */
 async function start(): Promise<void> {
   await app.register(cors, { origin: env.WEB_ORIGIN });
-  await ensureDemoTopic();
   adminPoller.start();
   await app.listen({ port: env.PORT, host: env.HOST });
 }

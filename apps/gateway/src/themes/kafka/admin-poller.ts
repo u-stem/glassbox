@@ -365,6 +365,15 @@ export interface AdminPollerOptions {
   intervalMs: number;
   onSnapshot: (snapshot: AdminSnapshot) => void;
   onError?: (error: unknown) => void;
+  /**
+   * Called when the broker becomes reachable -- on the *transition* into
+   * "connected", not on every successful tick. This is what lets the gateway start
+   * without a broker (ADR-0005): work that used to be a blocking boot step (creating
+   * the demo topic) hangs off this hook instead, so it also runs again after the
+   * broker is stopped and restarted, or after a container recreation wiped the topic.
+   * Must therefore be idempotent.
+   */
+  onReachable?: () => void | Promise<void>;
 }
 
 export interface AdminPoller {
@@ -401,6 +410,17 @@ export function createAdminPoller(
     }
   }
 
+  // Same contract as reportError: a throwing onReachable (e.g. createTopics racing
+  // another gateway instance) must not break the reschedule below, or the poller
+  // would stop ticking and the broker would look permanently unreachable.
+  async function reportReachable(): Promise<void> {
+    try {
+      await options.onReachable?.();
+    } catch (error) {
+      reportError(error);
+    }
+  }
+
   async function tick(): Promise<void> {
     if (stopped) {
       return;
@@ -414,7 +434,11 @@ export function createAdminPoller(
 
       // The topic RPCs above are the reachability signal: reaching this point means
       // the broker responded, regardless of what fetchGroupSnapshots does next.
+      const wasReachable = lastOutcome === "connected";
       lastOutcome = "connected";
+      if (!wasReachable) {
+        await reportReachable();
+      }
 
       // Deliberately isolated from the topic-offset fetch above: a failure fetching
       // consumer group info (e.g. listGroups() itself rejecting) must not prevent
