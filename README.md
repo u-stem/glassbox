@@ -21,7 +21,7 @@
 - `packages/schema`: web/gateway が共有する Zod スキーマ(`GlassboxEvent` エンベロープ + Kafka イベント union)。
 - gateway が別プロセスなのは、常駐する consumer/producer が Next.js の route handler のライフサイクル(HMR での破棄)と相容れず、`diagnostics_channel` の購読がプロセスグローバルなため(詳細は各 ADR を参照)。
 
-設計判断の詳細は [`docs/adr/`](docs/adr/)(クライアント選定・SSE 設計・状態権威モデル・プロセス耐障害性)、Kafka テーマ固有の学習内容・既知の限界は [`docs/themes/kafka.md`](docs/themes/kafka.md) を参照。
+設計判断の詳細は [`docs/adr/`](docs/adr/)(クライアント選定・SSE 設計・状態権威モデル・プロセス耐障害性・ブローカーのライフサイクル所有)、Kafka テーマ固有の学習内容・既知の限界は [`docs/themes/kafka.md`](docs/themes/kafka.md) を参照。
 
 ## セットアップ
 
