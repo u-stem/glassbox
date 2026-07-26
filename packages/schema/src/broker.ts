@@ -51,8 +51,10 @@ export const brokerActionRequestSchema = z.object({ action: brokerActionSchema }
 
 export const brokerStatusResponseSchema = z.object({
   broker: brokerStatusSchema,
-  /** Truncated stderr excerpt from a failed docker invocation, shown verbatim so the
-   * cause (daemon not running, port already bound, ...) is visible without a terminal. */
+  /** Truncated stderr excerpt from a failed docker invocation. Diagnostic only -- the
+   * home screen shows the status and the setup command, not this; it exists so that
+   * the cause (daemon not running, port already bound, ...) is in the gateway's log
+   * and in the response when the endpoint is called directly. */
   detail: z.string().optional(),
 });
 

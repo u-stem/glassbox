@@ -26,6 +26,19 @@ test("home: shows the Kafka card, both lesson links, and settles on ready", asyn
   await expect(page.getByText("Gateway 接続 OK / Kafka 稼働中")).toBeVisible();
 });
 
+/**
+ * Deliberately only asserts that the control is offered, never presses it: these
+ * specs run against the long-lived broker every other spec depends on (see the
+ * docblock above), so an actual stop/start round trip would take a minute and take
+ * the rest of the suite down with it. The start/stop logic itself is covered by unit
+ * tests over the controller and the ps parser.
+ */
+test("home: offers to stop the broker while it is running", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("button", { name: "停止" })).toBeEnabled();
+});
+
 test("home: clicking a lesson link deep-links into that lesson", async ({ page }) => {
   await page.goto("/");
 
