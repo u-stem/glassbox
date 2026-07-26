@@ -57,4 +57,16 @@ describe("parseEnv", () => {
 
     expect(env.EVENT_BUFFER_CAPACITY).toBe(1);
   });
+
+  test("leaves GLASSBOX_COMPOSE_FILE unset when not provided", () => {
+    const env = parseEnv({});
+
+    expect(env.GLASSBOX_COMPOSE_FILE).toBeUndefined();
+  });
+
+  test("uses provided GLASSBOX_COMPOSE_FILE value", () => {
+    const env = parseEnv({ GLASSBOX_COMPOSE_FILE: "/elsewhere/compose.yaml" });
+
+    expect(env.GLASSBOX_COMPOSE_FILE).toBe("/elsewhere/compose.yaml");
+  });
 });

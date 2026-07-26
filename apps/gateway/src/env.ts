@@ -11,6 +11,10 @@ const envSchema = z.object({
   EVENT_BUFFER_CAPACITY: z.coerce.number().int().min(1).default(1000),
   ADMIN_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(1000),
   WEB_ORIGIN: z.string().default("http://localhost:3000"),
+  // Overrides the compose file the broker control routes operate on. Left optional
+  // rather than given a default here because the fallback is derived from the
+  // gateway's own source location, not from a literal (see broker/compose-path.ts).
+  GLASSBOX_COMPOSE_FILE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
