@@ -73,7 +73,9 @@ test("lesson B: consumer group rebalance walkthrough", async ({ page }) => {
   await resetConsumerGroup();
   await page.goto("/themes/kafka");
 
-  await page.getByRole("button", { name: "レッスン" }).click();
+  // exact: accessible-name matching is substring by default, and "レッスンを終了"
+  // becomes visible once a lesson is open.
+  await page.getByRole("button", { name: "レッスン", exact: true }).click();
   await page.getByRole("button", { name: /Consumer group リバランス/ }).click();
 
   const runStep = page.getByRole("button", { name: "このステップを実行" });
@@ -111,7 +113,18 @@ test("lesson B: consumer group rebalance walkthrough", async ({ page }) => {
   // before the broker's own session timeout -- see docs/adr/0004-process-resilience.md's
   // sibling doc in consumer-actor.ts).
   await runStep.click();
-  await expect(page.getByText(/lost/)).toBeVisible({ timeout: 20_000 });
+  // Scoped to the topology panel, and .first() because a killed member from an
+  // earlier run can still be shown as lost alongside this run's: "lost" also appears
+  // in the event timeline (consumer.connection.lost) and, once the glossary lands,
+  // in its own entry -- an unscoped match would resolve to several elements.
+  // The name regex spans both the English and Japanese panel headings so it survives
+  // the heading rename.
+  await expect(
+    page
+      .getByRole("region", { name: /Topology|トポロジー/ })
+      .getByText(/lost/)
+      .first(),
+  ).toBeVisible({ timeout: 20_000 });
 
   await nextStep.click();
 

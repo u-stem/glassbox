@@ -12,21 +12,20 @@ const AUTOPLAY_STEP_INTERVAL_MS = 150;
  * page computes the actual past `world` from `value` (see time-travel.ts's
  * worldAtSeq) -- this component only owns the seek position and the play/pause
  * animation loop.
+ *
+ * Rendered only while time travel is active; the button that enters it lives in
+ * the page header row (see TimeTravelButton).
  */
 export function TimeTravelBar({
-  isActive,
   min,
   max,
   value,
-  onEnter,
   onExit,
   onSeek,
 }: {
-  isActive: boolean;
   min: number;
   max: number;
   value: number;
-  onEnter: () => void;
   onExit: () => void;
   onSeek: (seq: number) => void;
 }) {
@@ -37,7 +36,7 @@ export function TimeTravelBar({
   onSeekRef.current = onSeek;
 
   useEffect(() => {
-    if (!isActive || !isPlaying) {
+    if (!isPlaying) {
       return;
     }
     let rafId: number;
@@ -59,19 +58,7 @@ export function TimeTravelBar({
     rafId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(rafId);
-  }, [isActive, isPlaying, max]);
-
-  if (!isActive) {
-    return (
-      <button
-        type="button"
-        onClick={onEnter}
-        className="w-fit rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
-      >
-        Time travel
-      </button>
-    );
-  }
+  }, [isPlaying, max]);
 
   const isAtLiveEdge = value >= max;
 
@@ -104,7 +91,7 @@ export function TimeTravelBar({
         aria-label="time travel seek"
       />
       <span className="text-xs text-(--text-secondary)">
-        seq {value} / {max}
+        イベント {value} / {max}
       </span>
       <button
         type="button"

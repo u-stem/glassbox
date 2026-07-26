@@ -7,6 +7,24 @@ const CONSUMER_X = 620;
 const CONSUMER_ROW_HEIGHT = 72;
 const TOP_MARGIN = 40;
 
+/** Rendered width of a node box. Lives here rather than in TopologyCanvas because
+ * TOPOLOGY_CONTENT_WIDTH below needs it; the canvas imports it back for its own
+ * node styles so there is still exactly one definition. */
+export const NODE_WIDTH = 140;
+const RIGHT_MARGIN = 20;
+
+/**
+ * Width the canvas needs before anything is clipped: the consumer column is the
+ * rightmost thing laid out (it has no right-side handle -- see TopologyCanvas's
+ * ConsumerNode), so its box plus a small margin bounds the whole drawing.
+ *
+ * The canvas can't shrink to fit: pan/zoom are disabled precisely so the layout
+ * coordinates below equal on-screen pixels, which the message-pulse overlay relies
+ * on (see TopologyCanvas). So when the drawer narrows the column past this, the
+ * canvas scrolls horizontally instead of scaling.
+ */
+export const TOPOLOGY_CONTENT_WIDTH = CONSUMER_X + NODE_WIDTH + RIGHT_MARGIN;
+
 export interface TopologyConsumerNode {
   id: string;
   clientId: string;

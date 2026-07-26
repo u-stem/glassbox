@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { WorldGroup } from "../world-reducer";
-import { computeTopologyLayout } from "./layout";
+import { computeTopologyLayout, NODE_WIDTH, TOPOLOGY_CONTENT_WIDTH } from "./layout";
 
 describe("computeTopologyLayout", () => {
   test("places producer and topic with no consumers when there are no groups", () => {
@@ -75,5 +75,38 @@ describe("computeTopologyLayout", () => {
     const layout = computeTopologyLayout("orders", groups);
 
     expect(layout.edges).toEqual([]);
+  });
+});
+
+describe("TOPOLOGY_CONTENT_WIDTH", () => {
+  /** Derived from a real layout rather than compared against the same constants
+   * that build it, so moving a column actually fails this instead of moving the
+   * expectation with it. Without this the canvas would silently clip the rightmost
+   * nodes once the side drawer narrows its column (see layout.ts's doc). */
+  test("covers the rightmost node a layout can produce", () => {
+    const groups: WorldGroup[] = [
+      {
+        groupId: "g1",
+        state: "Stable",
+        members: [
+          {
+            memberId: "m1",
+            clientId: "consumer-a",
+            assignments: [{ topic: "orders", partitions: [0] }],
+            liveness: "alive",
+          },
+        ],
+        offsets: [],
+      },
+    ];
+
+    const layout = computeTopologyLayout("orders", groups);
+    const rightmost = Math.max(
+      layout.producer.x,
+      layout.topic.x,
+      ...layout.consumers.map((consumer) => consumer.x),
+    );
+
+    expect(TOPOLOGY_CONTENT_WIDTH).toBeGreaterThanOrEqual(rightmost + NODE_WIDTH);
   });
 });

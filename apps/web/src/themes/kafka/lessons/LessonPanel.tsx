@@ -29,17 +29,25 @@ async function runResolvedAction(
 }
 
 /**
- * Guided-lesson side panel (Phase 4). Deliberately modeless: it's a fixed, narrow
- * aside layered over the right edge of the dashboard rather than a full-screen
- * overlay, so every scenario control / panel underneath stays clickable while a
- * lesson is open -- a lesson only ever *suggests* an action via its own "実行"
- * button, it never disables anything else on the page.
+ * Contents of the lesson pane of the theme page's side drawer. The drawer shell
+ * (the `<aside>`, its heading and close button) belongs to the page, which shares
+ * it with the glossary pane -- this component renders only the lesson body.
+ *
+ * Which lesson is open and how far through it the reader is are owned by the page,
+ * not here: the page swaps this pane out for the glossary and back, and lifting
+ * that state is what lets it do so by conditional rendering (unmounting this
+ * component) without losing the reader's place. `isRunning` stays local because it
+ * only describes an in-flight request this component itself issued.
  */
 export function LessonPanel({
   gatewayUrl,
   onError,
   onSlowMotionChanged,
-  initialLesson,
+  activeLesson,
+  stepIndex,
+  onSelectLesson,
+  onStepIndexChange,
+  onExitLesson,
 }: {
   gatewayUrl: string;
   onError: (message: string | undefined) => void;
@@ -48,27 +56,14 @@ export function LessonPanel({
    * gateway's own state is the source of truth either way; this just keeps the two
    * independent UI surfaces from disagreeing about it). */
   onSlowMotionChanged?: (enabled: boolean) => void;
-  /** Lesson to open on mount (e.g. resolved from a `?lesson=` deep link by the
-   * theme page). Only consulted for the initial useState value -- this panel
-   * doesn't react to `initialLesson` changing after mount, since the theme page
-   * only resolves it once from the page's own initial searchParams. */
-  initialLesson?: Lesson;
+  activeLesson: Lesson | undefined;
+  stepIndex: number;
+  onSelectLesson: (lesson: Lesson) => void;
+  onStepIndexChange: (stepIndex: number) => void;
+  onExitLesson: () => void;
 }) {
   const world = useKafkaStore((state) => state.world);
-  const [isOpen, setIsOpen] = useState(initialLesson !== undefined);
-  const [activeLesson, setActiveLesson] = useState<Lesson | undefined>(initialLesson);
-  const [stepIndex, setStepIndex] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-
-  function startLesson(lesson: Lesson): void {
-    setActiveLesson(lesson);
-    setStepIndex(0);
-  }
-
-  function exitLesson(): void {
-    setActiveLesson(undefined);
-    setStepIndex(0);
-  }
 
   async function runStepAction(): Promise<void> {
     if (activeLesson === undefined) {
@@ -96,120 +91,89 @@ export function LessonPanel({
     }
   }
 
-  if (!isOpen) {
+  if (activeLesson === undefined) {
     return (
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        // Filled even though it is a secondary action: this floats over whatever the
-        // canvas is showing, and an outlined surface would sit at 1.03:1 against the page
-        // plane (1.00:1 where it overlaps a panel), i.e. an invisible entry point.
-        className="fixed right-4 top-20 z-10 rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) shadow-lg hover:opacity-90"
-      >
-        レッスン
-      </button>
+      <ul className="flex flex-col gap-2">
+        {lessons.map((lesson) => (
+          <li key={lesson.id}>
+            <button
+              type="button"
+              onClick={() => onSelectLesson(lesson)}
+              className="w-full rounded border border-(--text-muted) p-2 text-left text-sm hover:border-(--text-primary)"
+            >
+              <div className="font-medium">{lesson.title}</div>
+              <div className="text-xs text-(--text-secondary)">{lesson.summary}</div>
+            </button>
+          </li>
+        ))}
+      </ul>
     );
   }
 
-  const totalSteps = activeLesson?.steps.length ?? 0;
+  const totalSteps = activeLesson.steps.length;
   const clampedIndex = clampStepIndex(stepIndex, totalSteps);
-  const step = activeLesson?.steps[clampedIndex];
+  const step = activeLesson.steps[clampedIndex];
   const resolvedAction =
-    activeLesson !== undefined && step?.action !== undefined
-      ? resolveLessonAction(step.action, world)
-      : undefined;
+    step?.action !== undefined ? resolveLessonAction(step.action, world) : undefined;
 
   return (
-    <aside
-      className="fixed right-4 top-20 z-10 flex max-h-[calc(100vh-6rem)] w-80 flex-col gap-3 overflow-y-auto rounded border border-(--border) bg-(--surface-1) p-4 shadow-lg"
-      aria-label="ガイド付きレッスン"
-    >
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">レッスン</h2>
-        <button
-          type="button"
-          onClick={() => setIsOpen(false)}
-          className="text-sm text-(--text-secondary) hover:text-(--text-primary)"
-        >
-          閉じる
-        </button>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between text-xs text-(--text-secondary)">
+        <span>{activeLesson.title}</span>
+        <span>
+          {clampedIndex + 1} / {totalSteps}
+        </span>
       </div>
 
-      {activeLesson === undefined ? (
-        <ul className="flex flex-col gap-2">
-          {lessons.map((lesson) => (
-            <li key={lesson.id}>
-              <button
-                type="button"
-                onClick={() => startLesson(lesson)}
-                className="w-full rounded border border-(--text-muted) p-2 text-left text-sm hover:border-(--text-primary)"
-              >
-                <div className="font-medium">{lesson.title}</div>
-                <div className="text-xs text-(--text-secondary)">{lesson.summary}</div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between text-xs text-(--text-secondary)">
-            <span>{activeLesson.title}</span>
-            <span>
-              {clampedIndex + 1} / {totalSteps}
-            </span>
-          </div>
-
-          {step && (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold">{step.title}</h3>
-              <p className="whitespace-pre-wrap text-sm text-(--text-secondary)">{step.body}</p>
-              {step.observe && (
-                <p className="rounded border border-(--status-good)/60 bg-(--status-good)/12 p-2 text-xs">
-                  観察ポイント: {step.observe}
-                </p>
-              )}
-              {step.action && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void runStepAction();
-                  }}
-                  disabled={isRunning || resolvedAction === undefined}
-                  className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
-                >
-                  このステップを実行
-                </button>
-              )}
-            </div>
+      {step && (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">{step.title}</h3>
+          <p className="whitespace-pre-wrap text-sm text-(--text-secondary)">{step.body}</p>
+          {step.observe && (
+            <p className="rounded border border-(--status-good)/60 bg-(--status-good)/12 p-2 text-xs">
+              観察ポイント: {step.observe}
+            </p>
           )}
-
-          <div className="flex items-center justify-between">
+          {step.action && (
             <button
               type="button"
-              onClick={() => setStepIndex((i) => clampStepIndex(i - 1, totalSteps))}
-              disabled={clampedIndex === 0}
-              className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
+              onClick={() => {
+                void runStepAction();
+              }}
+              disabled={isRunning || resolvedAction === undefined}
+              className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
             >
-              戻る
+              このステップを実行
             </button>
-            <button
-              type="button"
-              onClick={exitLesson}
-              className="text-xs text-(--text-secondary) hover:text-(--text-primary)"
-            >
-              レッスンを終了
-            </button>
-            <button
-              type="button"
-              onClick={() => setStepIndex((i) => clampStepIndex(i + 1, totalSteps))}
-              disabled={clampedIndex === totalSteps - 1}
-              className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
-            >
-              次へ
-            </button>
-          </div>
+          )}
         </div>
       )}
-    </aside>
+
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onStepIndexChange(clampStepIndex(clampedIndex - 1, totalSteps))}
+          disabled={clampedIndex === 0}
+          className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
+        >
+          戻る
+        </button>
+        <button
+          type="button"
+          onClick={onExitLesson}
+          className="text-xs text-(--text-secondary) hover:text-(--text-primary)"
+        >
+          レッスンを終了
+        </button>
+        <button
+          type="button"
+          onClick={() => onStepIndexChange(clampStepIndex(clampedIndex + 1, totalSteps))}
+          disabled={clampedIndex === totalSteps - 1}
+          className="rounded border border-(--text-muted) px-2 py-1 text-sm enabled:hover:border-(--text-primary) disabled:opacity-50"
+        >
+          次へ
+        </button>
+      </div>
+    </div>
   );
 }

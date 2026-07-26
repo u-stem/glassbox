@@ -16,10 +16,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { partitionColorVar } from "../colors";
 import type { WorldGroup } from "../world-reducer";
-import { computeTopologyLayout } from "./layout";
+import { computeTopologyLayout, NODE_WIDTH, TOPOLOGY_CONTENT_WIDTH } from "./layout";
 
 const CANVAS_HEIGHT = 320;
-const NODE_WIDTH = 140;
 const NODE_HEIGHT = 48;
 const PULSE_DURATION_S = 0.6;
 /** Thins bursts of produce/consume events to one pulse per path per window, per the
@@ -279,48 +278,75 @@ export function TopologyCanvas({
 
   return (
     <div className="viz-root flex flex-col gap-2">
-      <div className="relative" style={{ height: CANVAS_HEIGHT, background: "var(--surface-1)" }}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          panOnDrag={false}
-          panOnScroll={false}
-          zoomOnScroll={false}
-          zoomOnPinch={false}
-          zoomOnDoubleClick={false}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          proOptions={{ hideAttribution: true }}
+      {/* The canvas is a fixed-size drawing that cannot scale down (see layout.ts's
+       * TOPOLOGY_CONTENT_WIDTH), so a column narrower than it scrolls instead.
+       * overflow-y is pinned to hidden because a single `auto` axis makes CSS compute
+       * the other one as `auto` too, which would eat into the fixed 320px height where
+       * scrollbars are drawn in the layout flow.
+       *
+       * Deliberately not animated: the width change on drawer open/close must be
+       * instant, or ReactFlow's ResizeObserver re-measures every frame. */}
+      <div className="overflow-x-auto overflow-y-hidden">
+        {/* min-width goes on this element -- the one the pulse overlay below is
+         * positioned against. Putting it on a new inner wrapper instead would leave
+         * the overlay sized to the unscrolled viewport while the nodes sit in the
+         * wider box, so the pulses would drift away from the edges they trace. */}
+        <div
+          className="relative"
+          style={{
+            height: CANVAS_HEIGHT,
+            minWidth: TOPOLOGY_CONTENT_WIDTH,
+            background: "var(--surface-1)",
+          }}
         >
-          {/* ReactFlow's own dot color (#91919a) is a light-mode constant that only
-           * changes behind its `.dark` class, which we never set -- on the dark plane it
-           * ends up more prominent than on the light one. The handle colors are pinned to
-           * roles in globals.css for the same reason. */}
-          <Background color="var(--gridline)" />
-        </ReactFlow>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            panOnDrag={false}
+            panOnScroll={false}
+            zoomOnScroll={false}
+            zoomOnPinch={false}
+            zoomOnDoubleClick={false}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            // Defaults to true, which calls preventDefault() on every wheel event over
+            // the pane even though zooming is off -- that would make the horizontal
+            // scroll above unreachable by wheel/trackpad exactly where you need it, and
+            // macOS's overlay scrollbars offer no visible fallback. Turning it off also
+            // stops the canvas from swallowing ordinary page scrolling.
+            preventScrolling={false}
+            proOptions={{ hideAttribution: true }}
+          >
+            {/* ReactFlow's own dot color (#91919a) is a light-mode constant that only
+             * changes behind its `.dark` class, which we never set -- on the dark plane it
+             * ends up more prominent than on the light one. The handle colors are pinned to
+             * roles in globals.css for the same reason. */}
+            <Background color="var(--gridline)" />
+          </ReactFlow>
 
-        <svg
-          className="pointer-events-none absolute inset-0"
-          width="100%"
-          height="100%"
-          aria-hidden="true"
-        >
-          <AnimatePresence>
-            {pulses.map((pulse) => (
-              <motion.circle
-                key={pulse.id}
-                r={4}
-                fill={pulse.color}
-                initial={{ cx: pulse.fromX, cy: pulse.fromY, opacity: 1 }}
-                animate={{ cx: pulse.toX, cy: pulse.toY, opacity: 0 }}
-                transition={{ duration: PULSE_DURATION_S, ease: "linear" }}
-                onAnimationComplete={() => removePulse(pulse.id)}
-              />
-            ))}
-          </AnimatePresence>
-        </svg>
+          <svg
+            className="pointer-events-none absolute inset-0"
+            width="100%"
+            height="100%"
+            aria-hidden="true"
+          >
+            <AnimatePresence>
+              {pulses.map((pulse) => (
+                <motion.circle
+                  key={pulse.id}
+                  r={4}
+                  fill={pulse.color}
+                  initial={{ cx: pulse.fromX, cy: pulse.fromY, opacity: 1 }}
+                  animate={{ cx: pulse.toX, cy: pulse.toY, opacity: 0 }}
+                  transition={{ duration: PULSE_DURATION_S, ease: "linear" }}
+                  onAnimationComplete={() => removePulse(pulse.id)}
+                />
+              ))}
+            </AnimatePresence>
+          </svg>
+        </div>
       </div>
 
       {partitionSwatches.length > 0 && (
