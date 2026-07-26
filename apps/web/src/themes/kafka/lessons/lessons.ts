@@ -21,7 +21,7 @@ export const partitioningLesson: Lesson = {
       body:
         "Kafka のトピックは複数のパーティション(ログ)に分割されています。producer が送るメッセージは" +
         "パーティションのいずれか 1 つに書き込まれ、同じパーティション内では書き込み順序が保証されます。" +
-        "画面右上のトポロジーには Topic ノードの中に P0, P1, ... というパーティションのレーンが並んでいます。",
+        "トポロジーのパネルを見ると、Topic ノードの中に P0, P1, ... というパーティションのレーンが並んでいます。",
       observe: "トポロジーの Topic ノード内に並ぶパーティションレーン(色分けされた P0, P1, ...)",
     },
     {
@@ -31,7 +31,7 @@ export const partitioningLesson: Lesson = {
         "produce-burst シナリオを keyStrategy=keyed で実行します。このモードでは `key-0` 〜 `key-3` の" +
         "4 種類のキーだけを使い回すため、同じキーのメッセージは常に同じパーティションに書き込まれます。",
       observe:
-        "パーティション盤面(Partitions パネル)で、特定のレーンだけ end offset が集中的に伸びていくこと。" +
+        "「パーティション」パネルで、特定のレーンだけ end offset が集中的に伸びていくこと。" +
         "トポロジーのパルスアニメーションでも、同じ色のパルスが同じ経路を繰り返し通ることが確認できます。",
       action: {
         kind: "scenario",
@@ -47,7 +47,7 @@ export const partitioningLesson: Lesson = {
         "この場合はデフォルトのパーティショナーが順番にパーティションを割り当てるため、メッセージは" +
         "ほぼ均等に全パーティションへ分散します。",
       observe:
-        "パーティション盤面で、先ほどと違い全レーンの end offset がまんべんなく伸びていくこと。",
+        "「パーティション」パネルで、先ほどと違い全レーンの end offset がまんべんなく伸びていくこと。",
       action: {
         kind: "scenario",
         scenarioId: "produce-burst",
@@ -84,7 +84,7 @@ export const rebalanceLesson: Lesson = {
         "同じ groupId を持つ consumer は 1 つの consumer group を構成し、トピックのパーティションを" +
         "分担して読み込みます。メンバーが増減するたびに group は Empty → PreparingRebalance → " +
         "CompletingRebalance → Stable という状態を遷移しながら、パーティションの再割当てを行います。",
-      observe: "Rebalance state パネルの状態遷移図(4 つの状態が横に並んだ図)",
+      observe: "「リバランス状態」パネルの状態遷移図(4 つの状態が横に並んだ図)",
     },
     {
       id: "add-first-consumer",
@@ -102,7 +102,7 @@ export const rebalanceLesson: Lesson = {
         "実際のリバランスは数百 ms 未満で終わってしまい、Preparing/Completing の各状態を目で追うのは" +
         "困難です。スローモーショントグルは、consumer の再参加(rejoin)処理に遅延を注入し、この過渡状態を" +
         "人の目で観察できる長さまで引き延ばします。",
-      observe: "コントロールバーの Slow-motion ボタンが ON になること",
+      observe: "「再生モード」の「スローモーション」ボタンが ON になること",
       action: { kind: "slow-motion", enabled: true, factorMs: 4000 },
     },
     {

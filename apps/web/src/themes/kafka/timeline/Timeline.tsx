@@ -43,7 +43,7 @@ export function Timeline({ events }: { events: readonly GlassboxEvent[] }) {
     <div className="viz-root flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-          type
+          種別(type)
           <select
             value={filter.type}
             onChange={(e) => setFilter((f) => ({ ...f, type: e.target.value }))}
@@ -59,7 +59,7 @@ export function Timeline({ events }: { events: readonly GlassboxEvent[] }) {
           </select>
         </label>
         <label className="flex shrink-0 items-center gap-1 whitespace-nowrap">
-          actorId
+          実行主体(actorId)
           <select
             value={filter.actorId}
             onChange={(e) => setFilter((f) => ({ ...f, actorId: e.target.value }))}
@@ -75,7 +75,7 @@ export function Timeline({ events }: { events: readonly GlassboxEvent[] }) {
           </select>
         </label>
         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-          {filtered.length} / {events.length} events
+          {filtered.length} / {events.length} 件
         </span>
       </div>
 

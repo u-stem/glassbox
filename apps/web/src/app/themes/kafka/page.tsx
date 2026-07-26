@@ -252,39 +252,51 @@ export default function KafkaThemePage({
                   用語集
                 </button>
                 <TimeTravelButton onEnter={enterTimeTravel} disabled={isTimeTravel} />
+                <GlossaryMarker id="time-travel" />
               </div>
             </div>
 
-            <section className="flex flex-wrap items-end gap-4 rounded border border-(--border) bg-(--surface-1) p-3">
+            <section className="flex flex-col gap-3 rounded border border-(--border) bg-(--surface-1) p-3">
               <ScenarioRunner gatewayUrl={GATEWAY_URL} onError={setScenarioError} />
 
-              <label className="flex flex-col gap-1 text-sm">
-                slow-motion factorMs
-                <input
-                  type="number"
-                  min={0}
-                  max={10000}
-                  value={slowMotionFactorMs}
-                  onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
-                  className="w-24 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-(--text-primary)"
-                />
-              </label>
-              {/* Filled while on, outlined while off -- the state has to survive without the
-               * hue the old purple carried, and aria-pressed carries it for assistive tech. */}
-              <button
-                type="button"
-                aria-pressed={slowMotionEnabled}
-                onClick={() => {
-                  void handleSlowMotionToggle();
-                }}
-                className={
-                  slowMotionEnabled
-                    ? "rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
-                    : "rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
-                }
-              >
-                Slow-motion: {slowMotionEnabled ? "ON" : "OFF"}
-              </button>
+              <div className="flex flex-wrap items-start gap-3 border-t border-(--border) pt-3">
+                {/* pt-7 offsets one label line, matching the field beside it. */}
+                <span className="flex items-center gap-1 pt-7">
+                  <h2 className="text-sm font-medium text-(--text-secondary)">再生モード</h2>
+                  <GlossaryMarker id="slow-motion" />
+                </span>
+
+                {/* label as a sibling rather than a wrapper, so the marker beside the
+                 * group heading is never inside a label's click target. */}
+                <div className="flex flex-col gap-1 text-sm">
+                  <label htmlFor="slow-motion-factor">引き延ばし時間(ミリ秒)</label>
+                  <input
+                    id="slow-motion-factor"
+                    type="number"
+                    min={0}
+                    max={10000}
+                    value={slowMotionFactorMs}
+                    onChange={(e) => setSlowMotionFactorMs(Number(e.target.value))}
+                    className="w-28 rounded border border-(--text-muted) bg-(--surface-1) px-2 py-1 text-(--text-primary)"
+                  />
+                </div>
+                {/* Filled while on, outlined while off -- the state has to survive without the
+                 * hue the old purple carried, and aria-pressed carries it for assistive tech. */}
+                <button
+                  type="button"
+                  aria-pressed={slowMotionEnabled}
+                  onClick={() => {
+                    void handleSlowMotionToggle();
+                  }}
+                  className={
+                    slowMotionEnabled
+                      ? "mt-7 rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90"
+                      : "mt-7 rounded border border-(--text-muted) px-3 py-1.5 text-sm hover:border-(--text-primary)"
+                  }
+                >
+                  スローモーション: {slowMotionEnabled ? "ON" : "OFF"}
+                </button>
+              </div>
 
               {scenarioError && <ErrorLine>{scenarioError}</ErrorLine>}
               {consumerActionError && <ErrorLine>{consumerActionError}</ErrorLine>}

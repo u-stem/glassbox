@@ -45,7 +45,9 @@ export function ScenarioForm({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    // Top-aligned: each field is label / input / optional help text, and help text of
+    // differing heights would stagger the inputs if the bottoms were aligned instead.
+    <div className="flex flex-wrap items-start gap-3">
       {fields.map((field) => {
         const inputId = `${scenario.id}-${field.name}`;
         const descriptionId = `${inputId}-description`;
@@ -102,19 +104,27 @@ export function ScenarioForm({
           </div>
         );
       })}
-      {/* The visible label stays short -- the Japanese scenario titles are a sentence
-       * long -- while the accessible name still says which scenario it runs. */}
-      <button
-        type="button"
-        onClick={() => {
-          void handleSubmit();
-        }}
-        disabled={isSubmitting}
-        aria-label={`${scenario.title} を実行`}
-        className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
-      >
-        実行
-      </button>
+      {/* The spacer reserves exactly one label line, so the button lines up with the
+       * inputs beside it rather than with their labels (the row is top-aligned
+       * because the fields' help text varies in height). */}
+      <div className="flex flex-col gap-1 text-sm">
+        <span aria-hidden="true" className="invisible">
+          実行
+        </span>
+        {/* The visible label stays short -- the Japanese scenario titles are a sentence
+         * long -- while the accessible name still says which scenario it runs. */}
+        <button
+          type="button"
+          onClick={() => {
+            void handleSubmit();
+          }}
+          disabled={isSubmitting}
+          aria-label={`${scenario.title} を実行`}
+          className="rounded bg-(--accent) px-3 py-1.5 text-sm text-(--on-accent) hover:opacity-90 disabled:opacity-50"
+        >
+          実行
+        </button>
+      </div>
     </div>
   );
 }
