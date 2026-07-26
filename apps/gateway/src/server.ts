@@ -1,5 +1,9 @@
 import cors from "@fastify/cors";
-import type { GlassboxEvent, HealthzResponse } from "@glassbox/schema";
+import {
+  brokerActionRequestSchema,
+  type GlassboxEvent,
+  type HealthzResponse,
+} from "@glassbox/schema";
 import { Admin } from "@platformatic/kafka";
 import Fastify from "fastify";
 import { ulid } from "ulid";
@@ -9,6 +13,10 @@ import { EventBus } from "./event-bus";
 import { createConsumerRegistry } from "./themes/kafka/actors/consumer-registry";
 import { ProducerActor } from "./themes/kafka/actors/producer-actor";
 import { createAdminPoller } from "./themes/kafka/admin-poller";
+import { resolveComposePath } from "./themes/kafka/broker/compose-path";
+import { createBrokerController } from "./themes/kafka/broker/controller";
+import { createExecFileDockerRunner } from "./themes/kafka/broker/docker-cli";
+import { toBrokerHttpStatus } from "./themes/kafka/broker/http-status";
 import { startKafkaCollector } from "./themes/kafka/collector";
 import { wireGroupStateTracker } from "./themes/kafka/group-state-wiring";
 import {
@@ -162,6 +170,44 @@ async function ensureDemoTopic(): Promise<void> {
 
 app.get("/healthz", async (): Promise<HealthzResponse> => {
   return { ok: true, kafka: adminPoller.kafkaStatus() };
+});
+
+/**
+ * Broker lifecycle control (ADR-0005). This lives in the gateway rather than in the
+ * web app because the gateway is the process that already owns side effects, and it
+ * is reachable only on loopback (env.HOST) and only from WEB_ORIGIN (the cors plugin
+ * registered in start()) -- the same threat model as the scenario routes below.
+ *
+ * `/healthz`'s `kafka` field answers a different question (can the gateway talk to
+ * the broker *right now*) and both are deliberately kept: the container can be up
+ * while the broker is not yet answering.
+ */
+const brokerController = createBrokerController({
+  run: createExecFileDockerRunner(),
+  composePath: resolveComposePath({ configuredPath: env.GLASSBOX_COMPOSE_FILE }),
+});
+
+app.get("/api/themes/kafka/broker", async (_request, reply) => {
+  const outcome = await brokerController.status();
+  return reply.code(toBrokerHttpStatus(outcome.broker)).send(outcome);
+});
+
+app.post("/api/themes/kafka/broker", async (request, reply) => {
+  let action: "start" | "stop";
+  try {
+    action = brokerActionRequestSchema.parse(request.body).action;
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return reply.code(400).send({ error: error.message });
+    }
+    throw error;
+  }
+
+  const result = await brokerController.apply(action);
+  if (result.status === "conflict") {
+    return reply.code(409).send({ error: "a broker action is already running" });
+  }
+  return reply.code(toBrokerHttpStatus(result.outcome.broker)).send(result.outcome);
 });
 
 /**
